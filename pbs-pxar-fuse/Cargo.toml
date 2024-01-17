@@ -1,0 +1,19 @@
+[package]
+name = "pbs-pxar-fuse"
+version = "0.1.0"
+edition.workspace = true
+description = "pxar fuse file system code"
+
+[dependencies]
+anyhow.workspace = true
+futures.workspace = true
+libc.workspace = true
+log.workspace = true
+tokio.workspace = true
+
+proxmox-fuse.workspace = true
+proxmox-io.workspace = true
+proxmox-lang.workspace=true
+proxmox-sys.workspace = true
+
+pxar.workspace = true

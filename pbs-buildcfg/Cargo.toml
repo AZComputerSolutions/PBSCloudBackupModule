@@ -1,0 +1,9 @@
+[package]
+name = "pbs-buildcfg"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+description = "macros used for pbs related paths such as configdir and rundir"
+build = "build.rs"
+
+[dependencies]

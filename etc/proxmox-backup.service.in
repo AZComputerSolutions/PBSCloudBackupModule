@@ -1,0 +1,14 @@
+[Unit]
+Description=Proxmox Backup API Server
+Wants=network-online.target
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=%LIBEXECDIR%/proxmox-backup/proxmox-backup-api
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/run/proxmox-backup/api.pid
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

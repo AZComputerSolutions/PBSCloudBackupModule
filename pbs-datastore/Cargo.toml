@@ -1,0 +1,43 @@
+[package]
+name = "pbs-datastore"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "low level pbs data storage access"
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+crc32fast.workspace = true
+endian_trait.workspace = true
+futures.workspace = true
+hex = { workspace = true, features = [ "serde" ] }
+lazy_static.workspace = true
+libc.workspace = true
+log.workspace = true
+nix.workspace = true
+openssl.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = [] }
+walkdir.workspace = true
+zstd.workspace = true
+
+pathpatterns.workspace = true
+pxar.workspace = true
+
+proxmox-borrow.workspace = true
+proxmox-io.workspace = true
+proxmox-human-byte.workspace = true
+proxmox-lang.workspace=true
+proxmox-schema = { workspace = true, features = [ "api-macro" ] }
+proxmox-serde = { workspace = true, features = [ "serde_json" ] }
+proxmox-time.workspace = true
+proxmox-uuid.workspace = true
+proxmox-sys.workspace = true
+
+pbs-api-types.workspace = true
+pbs-buildcfg.workspace = true
+pbs-config.workspace = true
+pbs-key-config.workspace = true
+pbs-tools.workspace = true

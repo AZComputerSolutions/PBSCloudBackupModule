@@ -1,0 +1,53 @@
+[package]
+name = "pbs-client"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "The main proxmox backup client crate"
+
+[dependencies]
+anyhow.workspace = true
+bitflags.workspace = true
+bytes.workspace = true
+futures.workspace = true
+h2.workspace = true
+hex.workspace = true
+http.workspace = true
+hyper.workspace = true
+lazy_static.workspace = true
+libc.workspace = true
+log.workspace = true
+nix.workspace = true
+openssl.workspace = true
+percent-encoding.workspace = true
+pin-project-lite.workspace = true
+regex.workspace = true
+rustyline.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tar.workspace = true
+tokio = { workspace = true, features = [ "fs", "signal" ] }
+tokio-stream.workspace = true
+tower-service.workspace = true
+xdg.workspace = true
+
+pathpatterns.workspace = true
+
+proxmox-async.workspace = true
+proxmox-auth-api.workspace = true
+proxmox-compression.workspace = true
+proxmox-http = { workspace = true, features = [ "rate-limiter" ] }
+proxmox-human-byte.workspace = true
+proxmox-io = { workspace = true, features = [ "tokio" ] }
+proxmox-lang.workspace = true
+proxmox-router = { workspace = true, features = [ "cli", "server" ] }
+proxmox-schema.workspace = true
+proxmox-sys.workspace = true
+proxmox-time.workspace = true
+
+pxar.workspace = true
+
+pbs-api-types.workspace = true
+pbs-buildcfg.workspace = true
+pbs-datastore.workspace = true
+pbs-tools.workspace = true
