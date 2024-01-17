@@ -1,0 +1,20 @@
+[package]
+name = "pbs-fuse-loop"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "fuse and loop device helpers"
+
+[dependencies]
+anyhow.workspace = true
+futures.workspace = true
+lazy_static.workspace = true
+libc.workspace = true
+log.workspace = true
+nix.workspace = true
+regex.workspace = true
+tokio = { workspace = true, features = ["io-util"] }
+
+proxmox-fuse.workspace = true
+proxmox-sys.workspace = true
+proxmox-time.workspace = true

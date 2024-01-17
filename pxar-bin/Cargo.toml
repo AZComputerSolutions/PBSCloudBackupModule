@@ -1,0 +1,29 @@
+[package]
+name = "pxar-bin"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "pxar"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+futures.workspace = true
+log.workspace = true
+nix.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = [ "rt", "rt-multi-thread" ] }
+
+pathpatterns.workspace = true
+pxar.workspace = true
+
+proxmox-async.workspace = true
+proxmox-router = { workspace = true, features = ["cli", "server"] }
+proxmox-schema = { workspace = true, features = [ "api-macro" ] }
+proxmox-sys.workspace = true
+
+pbs-client.workspace = true
+pbs-pxar-fuse.workspace = true
+pbs-tools.workspace = true

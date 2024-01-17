@@ -1,0 +1,44 @@
+[package]
+name = "proxmox-backup-client"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+futures.workspace = true
+hyper.workspace = true
+libc.workspace = true
+log.workspace = true
+nix.workspace = true
+openssl.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = [ "rt", "rt-multi-thread" ] }
+tokio-stream.workspace = true
+tokio-util = { workspace = true, features = [ "codec" ] }
+xdg.workspace = true
+zstd.workspace = true
+
+pathpatterns.workspace = true
+pxar.workspace = true
+
+proxmox-async.workspace = true
+proxmox-fuse.workspace = true
+proxmox-human-byte.workspace = true
+proxmox-io.workspace = true
+proxmox-router = { workspace = true, features = [ "cli" ] }
+proxmox-schema = { workspace = true, features = [ "api-macro" ] }
+proxmox-sortable-macro.workspace = true
+proxmox-sys.workspace = true
+proxmox-time.workspace = true
+
+pbs-api-types.workspace = true
+pbs-buildcfg.workspace = true
+pbs-client.workspace = true
+pbs-config.workspace = true
+pbs-datastore.workspace = true
+pbs-fuse-loop.workspace = true
+pbs-key-config.workspace = true
+pbs-pxar-fuse.workspace = true
+pbs-tools.workspace = true

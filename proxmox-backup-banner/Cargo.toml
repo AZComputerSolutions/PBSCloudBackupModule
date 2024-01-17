@@ -1,0 +1,9 @@
+[package]
+name = "proxmox-backup-banner"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+nix.workspace = true
