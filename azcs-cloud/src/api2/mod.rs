@@ -5,6 +5,7 @@ use proxmox_sortable_macro::sortable;
 pub mod access;
 pub mod admin;
 pub mod backup;
+pub mod cloud;
 pub mod config;
 pub mod helpers;
 pub mod node;
@@ -23,6 +24,7 @@ const SUBDIRS: SubdirMap = &sorted!([
     ("access", &access::ROUTER),
     ("admin", &admin::ROUTER),
     ("backup", &backup::ROUTER),
+    ("cloud", &cloud::ROUTER),
     ("config", &config::ROUTER),
     ("nodes", &node::ROUTER),
     ("ping", &ping::ROUTER),
