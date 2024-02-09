@@ -7,14 +7,13 @@ use proxmox_router::{list_subdirs_api_method, Router, SubdirMap};
 use proxmox_schema::api;
 
 pub mod backup;
-pub mod restore;
 
 #[api(
     input: {
         properties: {},
     },
     returns: {
-        description: "Cloud hello world.",
+        description: "Cloud backup.",
         type: String,
     },
 )]
@@ -24,6 +23,7 @@ pub fn cloud_hello(_param: Value) -> Result<String, Error> {
 }
 
 const SUBDIRS: SubdirMap = &[
+    ("backup", &backup::ROUTER),    
     (
         "cloud-hello",
         &Router::new().get(&API_METHOD_CLOUD_HELLO),

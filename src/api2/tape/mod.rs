@@ -39,13 +39,15 @@ pub fn scan_drives(_param: Value) -> Result<Vec<TapeDeviceInfo>, Error> {
         properties: {},
     },
     returns: {
-        description: "hello tape kalsym",
+        description: "hello take kalsym",
         type: String,
     },
 )]
 /// List kalsym jobs
 pub fn run_tape_kalsym(_param: Value) -> Result<String, Error> {
-    Ok("/tape/run hello-tape-run KALSYM-fawad".to_string())
+    print!("tape/run starting to progress");
+    log::error!("ERROR Method not implemented yet...");
+    Ok("/tape/run hello-tape-run METHOD NOT IMPLEMENTED YET".to_string())
 }
 
 
