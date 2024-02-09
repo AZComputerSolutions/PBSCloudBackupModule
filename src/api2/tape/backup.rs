@@ -310,6 +310,8 @@ pub fn backup(
     force_media_set: bool,
     rpcenv: &mut dyn RpcEnvironment,
 ) -> Result<Value, Error> {
+    print!("tape/backup starting to progress");
+    log::info!("tape/backup starting to progress.../s");
     let auth_id: Authid = rpcenv.get_auth_id().unwrap().parse()?;
 
     check_backup_permission(&auth_id, &setup.store, &setup.pool, &setup.drive)?;

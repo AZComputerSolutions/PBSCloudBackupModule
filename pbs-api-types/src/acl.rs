@@ -68,15 +68,6 @@ constnamedbitmap! {
         /// Tape.Read allows reading tape backup configuration and media contents
         PRIV_TAPE_READ("Tape.Read");
 
-        /// Cloud.Audit allows reading cloud backup configuration and status
-        PRIV_CLOUD_AUDIT("Cloud.Audit");
-        /// Cloud.Modify allows modifying cloud backup configuration
-        PRIV_CLOUD_MODIFY("Cloud.Modify");
-        /// Cloud.Write allows writing to a cloud provider
-        PRIV_CLOUD_WRITE("Cloud.Write");
-        /// Cloud.Read allows reading cloud backup configuration and contents
-        PRIV_CLOUD_READ("Cloud.Read");
-
         /// Realm.Allocate allows viewing, creating, modifying and deleting realms
         PRIV_REALM_ALLOCATE("Realm.Allocate");
     }

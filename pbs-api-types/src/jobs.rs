@@ -331,30 +331,6 @@ pub struct TapeBackupJobSetup {
     pub max_depth: Option<usize>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Updater, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-/// Cloud Backup Job Setup, Added by SK
-pub struct CloudBackupJobSetup {
-    pub store: String,
-    pub pool: String,
-    pub drive: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub eject_media: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub export_media_set: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub latest_only: Option<bool>,
-    /// Send job email notification to this user
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub notify_user: Option<Userid>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub group_filter: Option<Vec<GroupFilter>>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub ns: Option<BackupNamespace>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub max_depth: Option<usize>,
-}
-
 #[api(
     properties: {
         id: {
@@ -403,62 +379,6 @@ pub struct TapeBackupJobConfig {
 pub struct TapeBackupJobStatus {
     #[serde(flatten)]
     pub config: TapeBackupJobConfig,
-    #[serde(flatten)]
-    pub status: JobScheduleStatus,
-    /// Next tape used (best guess)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_media_label: Option<String>,
-}
-
-
-#[api(
-    properties: {
-        id: {
-            schema: JOB_ID_SCHEMA,
-        },
-        cloud_setup: {
-            optional: true,
-            type: CloudBackupJobSetup,
-        },
-        comment: {
-            optional: true,
-            schema: SINGLE_LINE_COMMENT_SCHEMA,
-        },
-        schedule: {
-            optional: true,
-            schema: SYNC_SCHEDULE_SCHEMA,
-        },
-    }
-)]
-#[derive(Serialize, Deserialize, Clone, Updater, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-/// Cloud Backup Job; Added by SK
-pub struct CloudBackupJobConfig {
-    #[updater(skip)]
-    pub id: String,
-    #[serde(flatten)]
-    pub cloud_setup: CloudBackupJobSetup,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub comment: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub schedule: Option<String>,
-}
-#[api(
-    properties: {
-        config: {
-            type: CloudBackupJobConfig,
-        },
-        status: {
-            type: JobScheduleStatus,
-        },
-    },
-)]
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-/// Status of Cloud Backup Job; Added by SK
-pub struct CloudBackupJobStatus {
-    #[serde(flatten)]
-    pub config: CloudBackupJobConfig,
     #[serde(flatten)]
     pub status: JobScheduleStatus,
     /// Next tape used (best guess)
