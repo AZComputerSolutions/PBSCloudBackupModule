@@ -43,7 +43,7 @@ use pbs_buildcfg::configdir;
 use proxmox_time::CalendarEvent;
 
 use pbs_api_types::{
-    Authid, DataStoreConfig, Operation, PruneJobConfig, SyncJobConfig, TapeBackupJobConfig, CloudBackupJobConfig,
+    Authid, DataStoreConfig, Operation, PruneJobConfig, SyncJobConfig, TapeBackupJobConfig,
     VerificationJobConfig,
 };
 
@@ -707,42 +707,6 @@ async fn schedule_tape_backup_jobs() {
                 do_tape_backup_job(job, job_config.setup, &auth_id, Some(event_str), false)
             {
                 eprintln!("unable to start tape backup job {job_id} - {err}");
-            }
-        };
-    }
-}
-async fn schedule_cloud_backup_jobs() {
-    let config = match pbs_config::cloud_job::config() {
-        Err(err) => {
-            eprintln!("unable to read cloud job config - {err}");
-            return;
-        }
-        Ok((config, _digest)) => config,
-    };
-    for (job_id, (_, job_config)) in config.sections {
-        let job_config: CloudBackupJobConfig = match serde_json::from_value(job_config) {
-            Ok(c) => c,
-            Err(err) => {
-                eprintln!("cloud backup job config from_value failed - {err}");
-                continue;
-            }
-        };
-        let event_str = match job_config.schedule {
-            Some(ref event_str) => event_str.clone(),
-            None => continue,
-        };
-
-        let worker_type = "cloud-backup-job";
-        let auth_id = Authid::root_auth_id().clone();
-        if check_schedule(worker_type, &event_str, &job_id) {
-            let job = match Job::new(worker_type, &job_id) {
-                Ok(job) => job,
-                Err(_) => continue, // could not get lock
-            };
-            if let Err(err) =
-                do_tape_backup_job(job, job_config.setup, &auth_id, Some(event_str), false)
-            {
-                eprintln!("unable to start cloud backup job {job_id} - {err}");
             }
         };
     }

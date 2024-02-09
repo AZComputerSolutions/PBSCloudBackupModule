@@ -1,17 +1,24 @@
+//use anyhow::Error;
+//use serde_json::Value;
+//use proxmox_schema::api;
+//use proxmox_router::{list_subdirs_api_method, Router, SubdirMap};
+
+
+
 use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, format_err, Error};
 use serde_json::Value;
 
 use proxmox_lang::try_block;
-use proxmox_router::{Permission, Router, RpcEnvironment, RpcEnvironmentType};
+use proxmox_router::{list_subdirs_api_method, SubdirMap, Permission, Router, RpcEnvironment, RpcEnvironmentType};
 use proxmox_schema::api;
 use proxmox_sys::{task_log, task_warn, WorkerTaskContext};
 
 use pbs_api_types::{
     print_ns_and_snapshot, print_store_and_ns, Authid, MediaPoolConfig, Operation,
-    CloudBackupJobConfig, CloudBackupJobSetup, CloudBackupJobStatus, Userid, JOB_ID_SCHEMA,
-    PRIV_DATASTORE_READ, PRIV_CLOUD_AUDIT, PRIV_CLOUD_WRITE, UPID_SCHEMA,
+    TapeBackupJobConfig, TapeBackupJobSetup, TapeBackupJobStatus, Userid, JOB_ID_SCHEMA,
+    PRIV_DATASTORE_READ, PRIV_TAPE_AUDIT, PRIV_TAPE_WRITE, UPID_SCHEMA,
 };
 
 use pbs_config::CachedUserInfo;
@@ -19,274 +26,83 @@ use pbs_datastore::backup_info::{BackupDir, BackupInfo};
 use pbs_datastore::{DataStore, StoreProgress};
 use proxmox_rest_server::WorkerTask;
 
-//Importing specific items into scope from the crate (the current package).
 use crate::{
     server::{
         jobstate::{compute_schedule_status, Job, JobState},
-        lookup_user_email, CloudBackupJobSummary,
+        lookup_user_email, TapeBackupJobSummary,
     },
-    //Todo: Need to add the relevant cloud details here
-    //cloud::
-    // tape::{
-    //     changer::update_changer_online_status,
-    //     drive::{lock_tape_device, media_changer, set_tape_device_state, TapeLockError},
-    //     Inventory, MediaPool, PoolWriter, TAPE_STATUS_DIR,
-    // },
+    tape::{
+        changer::update_changer_online_status,
+        drive::{lock_tape_device, media_changer, set_tape_device_state, TapeLockError},
+        Inventory, MediaPool, PoolWriter, TAPE_STATUS_DIR,
+    },
 };
 
-const CLOUD_BACKUP_JOB_ROUTER: Router = Router::new().post(&API_METHOD_RUN_CLOUD_BACKUP_JOB);
+
+enum SnapshotBackupResult {
+    Success,
+    Error,
+    Ignored,
+}
+
+
+
+
+
+// pub const ROUTER: Router = Router::new()
+//     .get(&API_METHOD_CLOUD_HELLO_BACKUP);
+
+const SUBDIRS: SubdirMap = &[
+    ("status", &Router::new().get(&API_METHOD_CLOUD_HELLO_BACKUP)),
+];
+
+const ITEM_ROUTER: Router = Router::new()
+    .get(&list_subdirs_api_method!(SUBDIRS))
+    .subdirs(SUBDIRS);
 
 pub const ROUTER: Router = Router::new()
-    .get(&API_METHOD_LIST_CLOUD_BACKUP_JOBS)
-    .post(&API_METHOD_BACKUP)
-    .match_all("id", &CLOUD_BACKUP_JOB_ROUTER);
+    .get(&API_METHOD_CLOUD_HELLO_BACKUP)
+    .match_all("name", &ITEM_ROUTER);
 
-fn check_backup_permission(
-    auth_id: &Authid,
-    store: &str,
-    pool: &str,
-    drive: &str,
-) -> Result<(), Error> {
-    let user_info = CachedUserInfo::new()?;
 
-    user_info.check_privs(auth_id, &["datastore", store], PRIV_DATASTORE_READ, false)?;
-
-    user_info.check_privs(auth_id, &["cloud", "drive", drive], PRIV_CLOUD_WRITE, false)?;
-
-    user_info.check_privs(auth_id, &["cloud", "pool", pool], PRIV_CLOUD_WRITE, false)?;
-
-    Ok(())
-}
-
-#[api(
-    returns: {
-        description: "List configured CLOUD backup jobs and their status",
-        type: Array,
-        items: { type: CloudBackupJobStatus },
-    },
-    access: {
-        description: "List configured tape jobs filtered by Cloud.Audit privileges",
-        permission: &Permission::Anybody,
-    },
-)]
-/// List all cloud backup jobs
-pub fn list_cloud_backup_jobs(
-    _param: Value,
-    rpcenv: &mut dyn RpcEnvironment,
-) -> Result<Vec<CloudBackupJobStatus>, Error> {
-    let auth_id: Authid = rpcenv.get_auth_id().unwrap().parse()?;
-    let user_info = CachedUserInfo::new()?;
-
-    let (job_config, digest) = pbs_config::cloud_job::config()?;
-    let (pool_config, _pool_digest) = pbs_config::media_pool::config()?;
-    let (drive_config, _digest) = pbs_config::drive::config()?;
-
-    let job_list_iter = job_config
-        .convert_to_typed_array("backup")?
-        .into_iter()
-        .filter(|_job: &CloudBackupJobConfig| {
-            // fixme: check access permission
-            true
-        });
-
-    let mut list = Vec::new();
-    let current_time = proxmox_time::epoch_i64();
-
-    for job in job_list_iter {
-        let privs = user_info.lookup_privs(&auth_id, &["cloud", "job", &job.id]);
-        if (privs & PRIV_CLOUD_AUDIT) == 0 {
-            continue;
-        }
-
-        let last_state = JobState::load("cloud-backup-job", &job.id)
-            .map_err(|err| format_err!("could not open statefile for {}: {}", &job.id, err))?;
-
-        let status = compute_schedule_status(&last_state, job.schedule.as_deref())?;
-
-        let next_run = status.next_run.unwrap_or(current_time);
-
-        let mut next_media_label = None;
-
-        if let Ok(pool) = pool_config.lookup::<MediaPoolConfig>("pool", &job.setup.pool) {
-            let mut changer_name = None;
-            if let Ok(Some((_, name))) = media_changer(&drive_config, &job.setup.drive) {
-                changer_name = Some(name);
-            }
-            if let Ok(mut pool) = MediaPool::with_config(CLOUD_STATUS_DIR, &pool, changer_name, true)
-            {
-                if pool.start_write_session(next_run, false).is_ok() {
-                    if let Ok(media_id) = pool.guess_next_writable_media(next_run) {
-                        next_media_label = Some(media_id.label.label_text);
-                    }
-                }
-            }
-        }
-
-        list.push(CloudBackupJobStatus {
-            config: job,
-            status,
-            next_media_label,
-        });
+    fn check_backup_permission(
+        auth_id: &Authid,
+        store: &str,
+        pool: &str,
+        drive: &str,
+    ) -> Result<(), Error> {
+        let user_info = CachedUserInfo::new()?;
+    
+        user_info.check_privs(auth_id, &["datastore", store], PRIV_DATASTORE_READ, false)?;
+    
+        user_info.check_privs(auth_id, &["tape", "drive", drive], PRIV_TAPE_WRITE, false)?;
+    
+        user_info.check_privs(auth_id, &["tape", "pool", pool], PRIV_TAPE_WRITE, false)?;
+    
+        Ok(())
     }
-
-    rpcenv["digest"] = hex::encode(digest).into();
-
-    Ok(list)
-}
-
-pub fn do_cloud_backup_job(
-    mut job: Job,
-    setup: TapeBackupJobSetup,
-    auth_id: &Authid,
-    schedule: Option<String>,
-    to_stdout: bool,
-) -> Result<String, Error> {
-    let job_id = format!(
-        "{}:{}:{}:{}",
-        setup.store,
-        setup.pool,
-        setup.drive,
-        job.jobname()
-    );
-
-    let worker_type = job.jobtype().to_string();
-
-    let datastore = DataStore::lookup_datastore(&setup.store, Some(Operation::Read))?;
-
-    let (config, _digest) = pbs_config::media_pool::config()?;
-    let pool_config: MediaPoolConfig = config.lookup("pool", &setup.pool)?;
-
-    let (drive_config, _digest) = pbs_config::drive::config()?;
-
-    // for scheduled jobs we acquire the lock later in the worker
-    let drive_lock = if schedule.is_some() {
-        None
-    } else {
-        Some(lock_cloud_device(&drive_config, &setup.drive)?)
-    };
-
-    let notify_user = setup
-        .notify_user
-        .as_ref()
-        .unwrap_or_else(|| Userid::root_userid());
-    let email = lookup_user_email(notify_user);
-
-    let upid_str = WorkerTask::new_thread(
-        &worker_type,
-        Some(job_id.clone()),
-        auth_id.to_string(),
-        to_stdout,
-        move |worker| {
-            job.start(&worker.upid().to_string())?;
-            let mut drive_lock = drive_lock;
-
-            let mut summary = Default::default();
-            let job_result = try_block!({
-                if schedule.is_some() {
-                    // for scheduled tape backup jobs, we wait indefinitely for the lock
-                    task_log!(worker, "waiting for drive lock...");
-                    loop {
-                        worker.check_abort()?;
-                        match lock_tape_device(&drive_config, &setup.drive) {
-                            Ok(lock) => {
-                                drive_lock = Some(lock);
-                                break;
-                            }
-                            Err(TapeLockError::TimeOut) => continue,
-                            Err(TapeLockError::Other(err)) => return Err(err),
-                        }
-                    }
-                }
-                set_tape_device_state(&setup.drive, &worker.upid().to_string())?;
-
-                task_log!(worker, "Starting tape backup job '{}'", job_id);
-                if let Some(event_str) = schedule {
-                    task_log!(worker, "task triggered by schedule '{}'", event_str);
-                }
-
-                backup_worker(
-                    &worker,
-                    datastore,
-                    &pool_config,
-                    &setup,
-                    email.clone(),
-                    &mut summary,
-                    false,
-                )
-            });
-
-            let status = worker.create_state(&job_result);
-
-            if let Some(email) = email {
-                if let Err(err) = crate::server::send_tape_backup_status(
-                    &email,
-                    Some(job.jobname()),
-                    &setup,
-                    &job_result,
-                    summary,
-                ) {
-                    eprintln!("send tape backup notification failed: {}", err);
-                }
-            }
-
-            if let Err(err) = job.finish(status) {
-                eprintln!("could not finish job state for {}: {}", job.jobtype(), err);
-            }
-
-            if let Err(err) = set_tape_device_state(&setup.drive, "") {
-                eprintln!("could not unset drive state for {}: {}", setup.drive, err);
-            }
-
-            job_result
-        },
-    )?;
-
-    Ok(upid_str)
-}
 
 #[api(
     input: {
-        properties: {
-            id: {
-                schema: JOB_ID_SCHEMA,
-            },
-        },
+        properties: {},
     },
-    access: {
-        // Note: parameters are from job config, so we need to test inside function body
-        description: "The user needs Cloud.Write privilege on /cloud/pool/{pool} \
-                      and /cloud/drive/{drive}, Datastore.Read privilege on /datastore/{store}.",
-        permission: &Permission::Anybody,
+    returns: {
+        description: "Cloud hello backup.",
+        type: String,
     },
 )]
-/// Runs a cloud backup job manually.
-pub fn run_cloud_backup_job(id: String, rpcenv: &mut dyn RpcEnvironment) -> Result<String, Error> {
-    let auth_id: Authid = rpcenv.get_auth_id().unwrap().parse()?;
-
-    let (config, _digest) = pbs_config::cloud_job::config()?;
-    let backup_job: CloudBackupJobConfig = config.lookup("backup", &id)?;
-
-    check_backup_permission(
-        &auth_id,
-        &backup_job.setup.store,
-        &backup_job.setup.pool,
-        &backup_job.setup.drive,
-    )?;
-
-    let job = Job::new("cloud-backup-job", &id)?;
-
-    let to_stdout = rpcenv.env_type() == RpcEnvironmentType::CLI;
-
-    let upid_str = do_cloud_backup_job(job, backup_job.setup, &auth_id, None, to_stdout)?;
-
-    Ok(upid_str)
+/// Cloud Hello
+pub fn cloud_hello_backup(_param: Value) -> Result<String, Error> {
+    let prm = _param.to_string();
+    Ok(format!("api2/json/cloud/backup cloud-hello-world and value is: {}", prm))
 }
+
 
 #[api(
     input: {
         properties: {
             setup: {
-                type: CloudBackupJobSetup,
+                type: TapeBackupJobSetup,
                 flatten: true,
             },
             "force-media-set": {
@@ -302,17 +118,19 @@ pub fn run_cloud_backup_job(id: String, rpcenv: &mut dyn RpcEnvironment) -> Resu
     },
     access: {
         // Note: parameters are no uri parameter, so we need to test inside function body
-        description: "The user needs Cloud.Write privilege on /cloud/pool/{pool} \
-                      and /cloud/drive/{drive}, Datastore.Read privilege on /datastore/{store}.",
+        description: "The user needs Tape.Write privilege on /tape/pool/{pool} \
+                      and /tape/drive/{drive}, Datastore.Read privilege on /datastore/{store}.",
         permission: &Permission::Anybody,
     },
 )]
-/// Backup datastore to cloud media pool
+/// Backup datastore to tape media pool
 pub fn backup(
-    setup: CloudBackupJobSetup,
+    setup: TapeBackupJobSetup,
     force_media_set: bool,
     rpcenv: &mut dyn RpcEnvironment,
 ) -> Result<Value, Error> {
+    print!("tape/backup starting to progress");
+    log::info!("tape/backup starting to progress.../s");
     let auth_id: Authid = rpcenv.get_auth_id().unwrap().parse()?;
 
     check_backup_permission(&auth_id, &setup.store, &setup.pool, &setup.drive)?;
@@ -325,7 +143,7 @@ pub fn backup(
     let (drive_config, _digest) = pbs_config::drive::config()?;
 
     // early check/lock before starting worker
-    let drive_lock = lock_cloud_device(&drive_config, &setup.drive)?;
+    let drive_lock = lock_tape_device(&drive_config, &setup.drive)?;
 
     let to_stdout = rpcenv.env_type() == RpcEnvironmentType::CLI;
 
@@ -338,13 +156,13 @@ pub fn backup(
     let email = lookup_user_email(notify_user);
 
     let upid_str = WorkerTask::new_thread(
-        "cloud-backup",
+        "tape-backup",
         Some(job_id),
         auth_id.to_string(),
         to_stdout,
         move |worker| {
             let _drive_lock = drive_lock; // keep lock guard
-            set_cloud_device_state(&setup.drive, &worker.upid().to_string())?;
+            set_tape_device_state(&setup.drive, &worker.upid().to_string())?;
 
             let mut summary = Default::default();
             let job_result = backup_worker(
@@ -358,7 +176,7 @@ pub fn backup(
             );
 
             if let Some(email) = email {
-                if let Err(err) = crate::server::send_cloud_backup_status(
+                if let Err(err) = crate::server::send_tape_backup_status(
                     &email,
                     None,
                     &setup,
@@ -370,7 +188,7 @@ pub fn backup(
             }
 
             // ignore errors
-            let _ = set_cloud_device_state(&setup.drive, "");
+            let _ = set_tape_device_state(&setup.drive, "");
             job_result
         },
     )?;
@@ -378,19 +196,14 @@ pub fn backup(
     Ok(upid_str.into())
 }
 
-enum SnapshotBackupResult {
-    Success,
-    Error,
-    Ignored,
-}
 
 fn backup_worker(
     worker: &WorkerTask,
     datastore: Arc<DataStore>,
     pool_config: &MediaPoolConfig,
-    setup: &CloudBackupJobSetup,
+    setup: &TapeBackupJobSetup,
     email: Option<String>,
-    summary: &mut CloudBackupJobSummary,
+    summary: &mut TapeBackupJobSummary,
     force_media_set: bool,
 ) -> Result<(), Error> {
     let start = std::time::Instant::now();
@@ -401,7 +214,7 @@ fn backup_worker(
     let root_namespace = setup.ns.clone().unwrap_or_default();
     let ns_magic = !root_namespace.is_root() || setup.max_depth != Some(0);
 
-    let pool = MediaPool::with_config(CLOUD_STATUS_DIR, pool_config, changer_name, false)?;
+    let pool = MediaPool::with_config(TAPE_STATUS_DIR, pool_config, changer_name, false)?;
 
     let mut pool_writer =
         PoolWriter::new(pool, &setup.drive, worker, email, force_media_set, ns_magic)?;
@@ -537,7 +350,7 @@ fn backup_worker(
         if !done {
             task_log!(
                 worker,
-                "catalog does not fit on cloud, writing to next volume"
+                "catalog does not fit on tape, writing to next volume"
             );
             pool_writer.set_media_status_full(&uuid)?;
             pool_writer.load_writable_media(worker)?;
@@ -555,7 +368,7 @@ fn backup_worker(
     }
 
     if errors {
-        bail!("Cloud backup finished with some errors. Please check the task log.");
+        bail!("Tape backup finished with some errors. Please check the task log.");
     }
 
     summary.used_tapes = match pool_writer.get_used_media_labels() {
@@ -578,7 +391,7 @@ fn update_media_online_status(drive: &str) -> Result<Option<String>, Error> {
     if let Ok(Some((mut changer, changer_name))) = media_changer(&config, drive) {
         let label_text_list = changer.online_media_label_texts()?;
 
-        let mut inventory = Inventory::load(CLOUD_STATUS_DIR)?;
+        let mut inventory = Inventory::load(TAPE_STATUS_DIR)?;
 
         update_changer_online_status(&config, &mut inventory, &changer_name, &label_text_list)?;
 
@@ -660,7 +473,7 @@ fn backup_snapshot(
     let (done, _bytes) = pool_writer.append_snapshot_archive(worker, &snapshot_reader)?;
 
     if !done {
-        // does not fit on cloud, so we try on next volume
+        // does not fit on tape, so we try on next volume
         pool_writer.set_media_status_full(&uuid)?;
 
         worker.check_abort()?;
