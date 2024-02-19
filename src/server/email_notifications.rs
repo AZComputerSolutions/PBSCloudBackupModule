@@ -12,7 +12,7 @@ use proxmox_sys::email::sendmail;
 
 use pbs_api_types::{
     APTUpdateInfo, DataStoreConfig, DatastoreNotify, GarbageCollectionStatus, Notify,
-    SyncJobConfig, TapeBackupJobSetup, User, Userid, VerificationJobConfig,
+    SyncJobConfig, TapeBackupJobSetup, User, Userid, VerificationJobConfig, CloudBackupJobSetup,
 };
 
 const GC_OK_TEMPLATE: &str = r###"
@@ -294,6 +294,17 @@ pub struct TapeBackupJobSummary {
     pub used_tapes: Option<Vec<String>>,
 }
 
+/// Summary of a successful Cloud Job
+#[derive(Default)]
+pub struct CloudBackupJobSummary {
+    /// The list of snaphots backed up
+    pub snapshot_list: Vec<String>,
+    /// The total time of the backup job
+    pub duration: std::time::Duration,
+}
+
+
+
 fn send_job_status_mail(email: &str, subject: &str, text: &str) -> Result<(), Error> {
     let (config, _) = crate::config::node::config()?;
     let from = config.email_from;
@@ -501,6 +512,45 @@ pub fn send_sync_status(
     let subject = match result {
         Ok(()) => format!("{} datastore '{}' successful", source_str, job.remote_store,),
         Err(_) => format!("{} datastore '{}' failed", source_str, job.remote_store,),
+    };
+
+    send_job_status_mail(email, &subject, &text)?;
+
+    Ok(())
+}
+
+pub fn send_cloud_backup_status(
+    email: &str,
+    id: Option<&str>,
+    job: &CloudBackupJobSetup,
+    result: &Result<(), Error>,
+    summary: CloudBackupJobSummary,
+) -> Result<(), Error> {
+    let (fqdn, port) = get_server_url();
+    let duration: proxmox_time::TimeSpan = summary.duration.into();
+    let mut data = json!({
+        "job": job,
+        "fqdn": fqdn,
+        "port": port,
+        "id": id,
+        "snapshot-list": summary.snapshot_list,
+        //"used-tapes": summary.used_tapes,
+        "duration": duration.to_string(),
+    });
+
+    let text = match result {
+        Ok(()) => HANDLEBARS.render("tape_backup_ok_template", &data)?,
+        Err(err) => {
+            data["error"] = err.to_string().into();
+            HANDLEBARS.render("tape_backup_err_template", &data)?
+        }
+    };
+
+    let subject = match (result, id) {
+        (Ok(()), Some(id)) => format!("Tape Backup '{id}' datastore '{}' successful", job.store,),
+        (Ok(()), None) => format!("Tape Backup datastore '{}' successful", job.store,),
+        (Err(_), Some(id)) => format!("Tape Backup '{id}' datastore '{}' failed", job.store,),
+        (Err(_), None) => format!("Tape Backup datastore '{}' failed", job.store,),
     };
 
     send_job_status_mail(email, &subject, &text)?;

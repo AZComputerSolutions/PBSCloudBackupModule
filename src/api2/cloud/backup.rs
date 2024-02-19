@@ -16,9 +16,7 @@ use proxmox_schema::api;
 use proxmox_sys::{task_log, task_warn, WorkerTaskContext};
 
 use pbs_api_types::{
-    print_ns_and_snapshot, print_store_and_ns, Authid, MediaPoolConfig, Operation,
-    TapeBackupJobConfig, TapeBackupJobSetup, TapeBackupJobStatus, Userid, JOB_ID_SCHEMA,
-    PRIV_DATASTORE_READ, PRIV_TAPE_AUDIT, PRIV_TAPE_WRITE, UPID_SCHEMA,
+    print_ns_and_snapshot, print_store_and_ns, Authid, CloudBackupJobSetup, MediaPoolConfig, Operation, TapeBackupJobConfig, TapeBackupJobSetup, TapeBackupJobStatus, Userid, JOB_ID_SCHEMA, PRIV_DATASTORE_READ, PRIV_TAPE_AUDIT, PRIV_TAPE_WRITE, UPID_SCHEMA
 };
 
 use pbs_config::CachedUserInfo;
@@ -29,13 +27,14 @@ use proxmox_rest_server::WorkerTask;
 use crate::{
     server::{
         jobstate::{compute_schedule_status, Job, JobState},
-        lookup_user_email, TapeBackupJobSummary,
+        lookup_user_email, TapeBackupJobSummary, CloudBackupJobSummary,
     },
     tape::{
         changer::update_changer_online_status,
         drive::{lock_tape_device, media_changer, set_tape_device_state, TapeLockError},
         Inventory, MediaPool, PoolWriter, TAPE_STATUS_DIR,
     },
+    cloud::CloudWriter,
 };
 
 
@@ -44,10 +43,6 @@ enum SnapshotBackupResult {
     Error,
     Ignored,
 }
-
-
-
-
 
 // pub const ROUTER: Router = Router::new()
 //     .get(&API_METHOD_CLOUD_HELLO_BACKUP);
@@ -105,12 +100,12 @@ pub fn cloud_hello_backup(_param: Value) -> Result<String, Error> {
                 type: TapeBackupJobSetup,
                 flatten: true,
             },
-            "force-media-set": {
-                description: "Ignore the allocation policy and start a new media-set.",
-                optional: true,
-                type: bool,
-                default: false,
-            },
+            // "force-media-set": {
+            //     description: "Ignore the allocation policy and start a new media-set.",
+            //     optional: true,
+            //     type: bool,
+            //     default: false,
+            // },
         },
     },
     returns: {
@@ -123,17 +118,17 @@ pub fn cloud_hello_backup(_param: Value) -> Result<String, Error> {
         permission: &Permission::Anybody,
     },
 )]
-/// Backup datastore to tape media pool
+/// Backup datastore to cloud
 pub fn backup(
-    setup: TapeBackupJobSetup,
-    force_media_set: bool,
+    setup: CloudBackupJobSetup,
+    //force_media_set: bool,
     rpcenv: &mut dyn RpcEnvironment,
 ) -> Result<Value, Error> {
-    print!("tape/backup starting to progress");
-    log::info!("tape/backup starting to progress.../s");
+    print!("cloud/backup starting to progress");
+    log::info!("cloud/backup starting to progress.../s");
     let auth_id: Authid = rpcenv.get_auth_id().unwrap().parse()?;
 
-    check_backup_permission(&auth_id, &setup.store, &setup.pool, &setup.drive)?;
+    //check_backup_permission(&auth_id, &setup.store, &setup.pool, &setup.drive)?;
 
     let datastore = DataStore::lookup_datastore(&setup.store, Some(Operation::Read))?;
 
@@ -143,7 +138,7 @@ pub fn backup(
     let (drive_config, _digest) = pbs_config::drive::config()?;
 
     // early check/lock before starting worker
-    let drive_lock = lock_tape_device(&drive_config, &setup.drive)?;
+    //let drive_lock = lock_tape_device(&drive_config, &setup.drive)?;
 
     let to_stdout = rpcenv.env_type() == RpcEnvironmentType::CLI;
 
@@ -156,13 +151,13 @@ pub fn backup(
     let email = lookup_user_email(notify_user);
 
     let upid_str = WorkerTask::new_thread(
-        "tape-backup",
+        "cloud-backup",
         Some(job_id),
         auth_id.to_string(),
         to_stdout,
         move |worker| {
-            let _drive_lock = drive_lock; // keep lock guard
-            set_tape_device_state(&setup.drive, &worker.upid().to_string())?;
+            //let _drive_lock = drive_lock; // keep lock guard
+            //set_tape_device_state(&setup.drive, &worker.upid().to_string())?; // commenting out tape device state check
 
             let mut summary = Default::default();
             let job_result = backup_worker(
@@ -172,11 +167,11 @@ pub fn backup(
                 &setup,
                 email.clone(),
                 &mut summary,
-                force_media_set,
+                //force_media_set,
             );
 
             if let Some(email) = email {
-                if let Err(err) = crate::server::send_tape_backup_status(
+                if let Err(err) = crate::server::send_cloud_backup_status(
                     &email,
                     None,
                     &setup,
@@ -188,7 +183,7 @@ pub fn backup(
             }
 
             // ignore errors
-            let _ = set_tape_device_state(&setup.drive, "");
+            //let _ = set_tape_device_state(&setup.drive, "");
             job_result
         },
     )?;
@@ -201,10 +196,10 @@ fn backup_worker(
     worker: &WorkerTask,
     datastore: Arc<DataStore>,
     pool_config: &MediaPoolConfig,
-    setup: &TapeBackupJobSetup,
+    setup: &CloudBackupJobSetup,
     email: Option<String>,
-    summary: &mut TapeBackupJobSummary,
-    force_media_set: bool,
+    summary: &mut CloudBackupJobSummary,
+    //force_media_set: bool,
 ) -> Result<(), Error> {
     let start = std::time::Instant::now();
 
@@ -216,8 +211,8 @@ fn backup_worker(
 
     let pool = MediaPool::with_config(TAPE_STATUS_DIR, pool_config, changer_name, false)?;
 
-    let mut pool_writer =
-        PoolWriter::new(pool, &setup.drive, worker, email, force_media_set, ns_magic)?;
+    //let mut pool_writer = PoolWriter::new(pool, &setup.drive, worker, email, force_media_set, ns_magic)?;
+    let mut cloud_writer = CloudWriter::new(worker, email)?;
 
     let mut group_list = Vec::new();
     let namespaces = datastore.recursive_iter_backup_ns_ok(root_namespace, setup.max_depth)?;
@@ -291,23 +286,23 @@ fn backup_worker(
             if let Some(info) = snapshot_list.pop() {
                 let rel_path =
                     print_ns_and_snapshot(info.backup_dir.backup_ns(), info.backup_dir.as_ref());
-                if pool_writer.contains_snapshot(
-                    datastore_name,
-                    info.backup_dir.backup_ns(),
-                    info.backup_dir.as_ref(),
-                ) {
-                    task_log!(worker, "skip snapshot {}", rel_path);
-                    continue;
-                }
+                // if pool_writer.contains_snapshot(
+                //     datastore_name,
+                //     info.backup_dir.backup_ns(),
+                //     info.backup_dir.as_ref(),
+                // ) {
+                //     task_log!(worker, "skip snapshot {}", rel_path);
+                //     continue;
+                // }
 
                 need_catalog = true;
 
-                match backup_snapshot(worker, &mut pool_writer, datastore.clone(), info.backup_dir)?
-                {
-                    SnapshotBackupResult::Success => summary.snapshot_list.push(rel_path),
-                    SnapshotBackupResult::Error => errors = true,
-                    SnapshotBackupResult::Ignored => {}
-                }
+                // match backup_snapshot(worker, &mut pool_writer, datastore.clone(), info.backup_dir)?
+                // {
+                //     SnapshotBackupResult::Success => summary.snapshot_list.push(rel_path),
+                //     SnapshotBackupResult::Error => errors = true,
+                //     SnapshotBackupResult::Ignored => {}
+                // }
                 progress.done_snapshots = 1;
                 task_log!(worker, "percentage done: {}", progress);
             }
@@ -317,67 +312,67 @@ fn backup_worker(
                 let rel_path =
                     print_ns_and_snapshot(info.backup_dir.backup_ns(), info.backup_dir.as_ref());
 
-                if pool_writer.contains_snapshot(
-                    datastore_name,
-                    info.backup_dir.backup_ns(),
-                    info.backup_dir.as_ref(),
-                ) {
-                    task_log!(worker, "skip snapshot {}", rel_path);
-                    continue;
-                }
+                // if pool_writer.contains_snapshot(
+                //     datastore_name,
+                //     info.backup_dir.backup_ns(),
+                //     info.backup_dir.as_ref(),
+                // ) {
+                //     task_log!(worker, "skip snapshot {}", rel_path);
+                //     continue;
+                // }
 
                 need_catalog = true;
 
-                match backup_snapshot(worker, &mut pool_writer, datastore.clone(), info.backup_dir)?
-                {
-                    SnapshotBackupResult::Success => summary.snapshot_list.push(rel_path),
-                    SnapshotBackupResult::Error => errors = true,
-                    SnapshotBackupResult::Ignored => {}
-                }
+                // match backup_snapshot(worker, &mut pool_writer, datastore.clone(), info.backup_dir)?
+                // {
+                //     SnapshotBackupResult::Success => summary.snapshot_list.push(rel_path),
+                //     SnapshotBackupResult::Error => errors = true,
+                //     SnapshotBackupResult::Ignored => {}
+                // }
                 progress.done_snapshots = snapshot_number as u64 + 1;
                 task_log!(worker, "percentage done: {}", progress);
             }
         }
     }
 
-    pool_writer.commit()?;
+    // pool_writer.commit()?;
 
-    if need_catalog {
-        task_log!(worker, "append media catalog");
+    // if need_catalog {
+    //     task_log!(worker, "append media catalog");
 
-        let uuid = pool_writer.load_writable_media(worker)?;
-        let done = pool_writer.append_catalog_archive(worker)?;
-        if !done {
-            task_log!(
-                worker,
-                "catalog does not fit on tape, writing to next volume"
-            );
-            pool_writer.set_media_status_full(&uuid)?;
-            pool_writer.load_writable_media(worker)?;
-            let done = pool_writer.append_catalog_archive(worker)?;
-            if !done {
-                bail!("write_catalog_archive failed on second media");
-            }
-        }
-    }
+    //     let uuid = pool_writer.load_writable_media(worker)?;
+    //     let done = pool_writer.append_catalog_archive(worker)?;
+    //     if !done {
+    //         task_log!(
+    //             worker,
+    //             "catalog does not fit on tape, writing to next volume"
+    //         );
+    //         pool_writer.set_media_status_full(&uuid)?;
+    //         pool_writer.load_writable_media(worker)?;
+    //         let done = pool_writer.append_catalog_archive(worker)?;
+    //         if !done {
+    //             bail!("write_catalog_archive failed on second media");
+    //         }
+    //     }
+    // }
 
-    if setup.export_media_set.unwrap_or(false) {
-        pool_writer.export_media_set(worker)?;
-    } else if setup.eject_media.unwrap_or(false) {
-        pool_writer.eject_media(worker)?;
-    }
+    // if setup.export_media_set.unwrap_or(false) {
+    //     pool_writer.export_media_set(worker)?;
+    // } else if setup.eject_media.unwrap_or(false) {
+    //     pool_writer.eject_media(worker)?;
+    // }
 
     if errors {
         bail!("Tape backup finished with some errors. Please check the task log.");
     }
 
-    summary.used_tapes = match pool_writer.get_used_media_labels() {
-        Ok(tapes) => Some(tapes),
-        Err(err) => {
-            task_warn!(worker, "could not collect list of used tapes: {err}");
-            None
-        }
-    };
+    // summary.used_tapes = match pool_writer.get_used_media_labels() {
+    //     Ok(tapes) => Some(tapes),
+    //     Err(err) => {
+    //         task_warn!(worker, "could not collect list of used tapes: {err}");
+    //         None
+    //     }
+    // };
 
     summary.duration = start.elapsed();
 
