@@ -25,6 +25,7 @@ pub mod auth_helpers;
 
 pub(crate) mod auth;
 
+pub mod cloud;
 pub mod tape;
 
 pub mod acme;
