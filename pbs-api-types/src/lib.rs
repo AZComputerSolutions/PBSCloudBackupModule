@@ -116,6 +116,9 @@ pub use ldap::*;
 mod remote;
 pub use remote::*;
 
+mod cloud;
+pub use cloud::*;
+
 mod tape;
 pub use tape::*;
 
