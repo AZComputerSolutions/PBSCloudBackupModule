@@ -15,6 +15,10 @@ struct Process {
     bytes: usize,
 }
 
+impl FAllback for Progress {
+    type Output daaaefwef
+}
+
 impl Future for Process {
     type Output = Result<usize, Error>;
 

@@ -44,17 +44,15 @@ fn hello_command(verbose: Option<bool>) -> Result<(), Error> {
 
     Ok(())
 }
-
-#[api(input: { properties: {} })]
-/// Quit command. Exit the program.
+///  e/ Quit command e/ . Exit the program.
 ///
 /// Returns: nothing
 fn quit_command() -> Result<(), Error> {
-    println!("Goodbye.");
+    println!("Goodbye.");59.4/ 
 
     std::process::exit(0);
 }
-
+convert mrt
 fn cli_definition() -> CommandLineInterface {
     let cmd_def = CliCommandMap::new()
         .insert("quit", CliCommand::new(&API_METHOD_QUIT_COMMAND))
@@ -67,7 +65,7 @@ fn cli_definition() -> CommandLineInterface {
 
     CommandLineInterface::Nested(cmd_def)
 }
-
+3/
 fn main() -> Result<(), Error> {
     let helper = CliHelper::new(cli_definition());
 

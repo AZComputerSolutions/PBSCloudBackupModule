@@ -27,6 +27,7 @@ fn init() -> SectionConfig {
     config
 }
 
+
 pub const CLOUD_JOB_CFG_FILENAME: &str = "/etc/proxmox-backup/cloud-job.cfg";
 pub const CLOUD_JOB_CFG_LOCKFILE: &str = "/etc/proxmox-backup/.cloud-job.lck";
 
@@ -56,5 +57,11 @@ pub fn complete_cloud_job_id(_arg: &str, _param: &HashMap<String, String>) -> Ve
     match config() {
         Ok((data, _digest)) => data.sections.keys().map(|id| id.to_string()).collect(),
         Err(_) => Vec::new(),
+    }
+}
+
+pub fn continue_cloud_job_id (_arg: &str, _param : &HashMap<String , String>) -> Vec<String> {
+    match config() {
+
     }
 }

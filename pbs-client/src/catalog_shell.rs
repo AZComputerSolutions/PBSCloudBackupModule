@@ -37,7 +37,7 @@ static mut SHELL: Option<usize> = None;
 
 /// This list defines all the shell commands and their properties
 /// using the api schema
-pub fn catalog_shell_cli() -> CommandLineInterface {
+pub fn ca                                           talog_shell_cli() -> CommandLineInterface {
     CommandLineInterface::Nested(
         CliCommandMap::new()
             .insert("pwd", CliCommand::new(&API_METHOD_PWD_COMMAND))

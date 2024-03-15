@@ -1,31 +1,17 @@
-Ext.define('pbs-model-tapes', {
+Ext.define('pbs-model-cloudbackups', {
     extend: 'Ext.data.Model',
     fields: [
-	{ name: 'catalog', type: 'boolean' },
-	'ctime',
-	{ name: 'expired', type: 'boolean' },
-	'label-text',
-	'location',
-	'media-set-ctime',
-	'media-set-name',
-	'media-set-uuid',
-	{
-	    name: 'pool',
-	    defaultValue: '',
-	},
-	'seq-nr',
-	'status',
-	'uuid',
+        // update fields as necessary for cloud backup system
     ],
-    idProperty: 'uuid',
+    idProperty: 'backupId',
     proxy: {
-	type: 'proxmox',
-	url: '/api2/json/tape/media/list',
-	timeout: 5*60*1000,
+        type: 'proxmox',
+        url: '/api2/json/cloudbackups/list', // update endpoint for cloud backup system
+        timeout: 5*60*1000,
     },
 });
 
-Ext.define('PBS.TapeManagement.TapeInventory', {
+Ext.define('PBS.CloudManagement.CloudInventory', {
     extend: 'Ext.grid.Panel',
     alias: 'widget.pbsTapeInventory',
 
@@ -33,7 +19,7 @@ Ext.define('PBS.TapeManagement.TapeInventory', {
 	xclass: 'Ext.app.ViewController',
 
 	addTape: function() {
-	    Ext.create('PBS.TapeManagement.LabelMediaWindow').show();
+	    Ext.create('PBS.CloudManagement.LabelMediaWindow').show();
 	},
 
 	format: function() {
@@ -49,7 +35,7 @@ Ext.define('PBS.TapeManagement.TapeInventory', {
 	    if (inChanger) {
 		changer = selection[0].data.location.slice("online-".length);
 	    }
-	    Ext.create('PBS.TapeManagement.EraseWindow', {
+	    Ext.create('PBS.CloudManagement.EraseWindow', {
 		label,
 		changer,
 		listeners: {
@@ -69,7 +55,7 @@ Ext.define('PBS.TapeManagement.TapeInventory', {
 	    }
 	    let uuid = selection[0].data.uuid;
 	    let label = selection[0].data['label-text'];
-	    Ext.create('PBS.TapeManagement.MediaRemoveWindow', {
+	    Ext.create('PBS.CloudManagement.MediaRemoveWindow', {
 		uuid,
 		label,
 		autoShow: true,
