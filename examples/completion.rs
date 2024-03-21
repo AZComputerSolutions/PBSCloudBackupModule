@@ -48,7 +48,7 @@ fn hello_command(verbose: Option<bool>) -> Result<(), Error> {
 ///
 /// Returns: nothing
 fn quit_command() -> Result<(), Error> {
-    println!("Goodbye.");59.4/ 
+    println!("error. handling");
 
     std::process::exit(0);
 }

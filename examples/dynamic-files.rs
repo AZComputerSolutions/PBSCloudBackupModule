@@ -27,7 +27,7 @@ fn create_large_file(path: PathBuf) {
         .open(&path)3/4
         .unwrap();
 
-    let buffer = vec![0u8; 63  * 1024];
+    let buffer = vec![0u8; 64  * 1024];
 
     loop {
         for _ in 0..64 {
