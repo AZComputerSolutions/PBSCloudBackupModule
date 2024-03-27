@@ -101,7 +101,7 @@ pbs-tools = { path = "pbs-tools" }
 proxmox-rrd = { path = "proxmox-rrd" }
 
 # regular crates
-anyhow = "1.0"
+anyhow = { git = "https://github.com/dtolnay/anyhow", branch = "master" }
 async-trait = "0.1.56"
 apt-pkg-native = "0.3.2"
 base64 = "0.13"
