@@ -50,7 +50,7 @@ pub const TRAFFIC_CONTROL_BURST_SCHEMA: Schema =
 )]
 #[derive(Serialize, Deserialize, Default, Clone, Updater, PartialEq)]
 #[serde(rename_all = "kebab-case")]
-///  Rate Limit Configuration
+///  Rate Limit Configuration for Cloud Backup
 pub struct RateLimitConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rate_in: Option<HumanByte>,
@@ -85,7 +85,7 @@ impl RateLimitConfig {
         limit: {
             type: RateLimitConfig,
         },
-        network: {
+        backup_targets: {
             type: Array,
             items: {
                 schema: CIDR_SCHEMA,
@@ -102,20 +102,16 @@ impl RateLimitConfig {
 )]
 #[derive(Clone, Serialize, Deserialize, PartialEq, Updater)]
 #[serde(rename_all = "kebab-case")]
-///  Traffic control rule
+///  Traffic control rule for Cloud Backup
 pub struct TrafficControlRule {
     #[updater(skip)]
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
-    /// Rule applies to Source IPs within this networks
-    pub network: Vec<String>,
+    /// Rule applies to backup targets within these networks
+    pub backup_targets: Vec<String>,
     #[serde(flatten)]
     pub limit: RateLimitConfig,
-    // fixme: expose this?
-    //    /// Bandwidth is shared across all connections
-    //    #[serde(skip_serializing_if="Option::is_none")]
-    //    pub shared: Option<bool>,
     /// Enable the rule at specific times
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeframe: Option<Vec<String>>,
@@ -130,7 +126,7 @@ pub struct TrafficControlRule {
 )]
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
-/// Traffic control rule config with current rates
+/// Traffic control rule config with current rates for Cloud Backup
 pub struct TrafficControlCurrentRate {
     #[serde(flatten)]
     pub config: TrafficControlRule,
