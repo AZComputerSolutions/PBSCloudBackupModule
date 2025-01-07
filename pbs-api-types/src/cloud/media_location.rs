@@ -1,15 +1,14 @@
 #[derive(Debug, PartialEq, Eq, Clone)]
 /// Media location
 pub enum MediaLocation {
-    /// Ready for use (inside tape library)
+    /// Ready for use (inside storage service)
     Online(String),
-    /// Local available, but need to be mounted (insert into tape
-    /// drive)
+    /// Local available, but need to be synchronized
     Offline,
     /// Media is inside a Vault
     Vault(String),
     /// Media is stored in a Cloud account
-    Cloud,
+    Cloud(String),
 }
 
 // ...
@@ -31,8 +30,10 @@ impl std::str::FromStr for MediaLocation {
                 s.strip_prefix("vault-").unwrap().to_string(),
             ));
         }
-        if s == "cloud" {
-            return Ok(MediaLocation::Cloud);
+        if s.starts_with("cloud-") {
+            return Ok(MediaLocation::Cloud(
+                s.strip_prefix("cloud-").unwrap().to_string(),
+            ));
         }
 
         bail!("MediaLocation parse error");
@@ -47,14 +48,14 @@ impl std::fmt::Display for MediaLocation {
             MediaLocation::Offline => {
                 write!(f, "offline")
             }
-            MediaLocation::Online(changer) => {
-                write!(f, "online-{}", changer)
+            MediaLocation::Online(storage_service) => {
+                write!(f, "online-{}", storage_service)
             }
             MediaLocation::Vault(vault) => {
                 write!(f, "vault-{}", vault)
             }
-            MediaLocation::Cloud => {
-                write!(f, "cloud")
+            MediaLocation::Cloud(cloud_service) => {
+                write!(f, "cloud-{}", cloud_service)
             }
         }
     }

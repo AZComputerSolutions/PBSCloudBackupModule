@@ -1,37 +1,41 @@
-use ::serde::{Deserialize, Serialize};
+//! Types for cloud media management API
+//!
+//! This module defines types and schemas for managing cloud media.
+
+use serde::{Deserialize, Serialize};
 
 use proxmox_schema::*;
 use proxmox_uuid::Uuid;
 
 use crate::{MediaLocation, MediaStatus, UUID_FORMAT};
 
-pub const MEDIA_SET_UUID_SCHEMA: Schema = StringSchema::new(
-    "MediaSet Uuid (We use the all-zero Uuid to reseve an empty media for a specific pool).",
+pub const CLOUD_MEDIA_SET_UUID_SCHEMA: Schema = StringSchema::new(
+    "Cloud MediaSet UUID (The all-zero UUID reserves an empty media for a specific pool).",
 )
 .format(&UUID_FORMAT)
 .schema();
 
-pub const MEDIA_UUID_SCHEMA: Schema = StringSchema::new("Media Uuid.")
+pub const CLOUD_MEDIA_UUID_SCHEMA: Schema = StringSchema::new("Cloud Media UUID.")
     .format(&UUID_FORMAT)
     .schema();
 
 #[api(
     properties: {
         "media-set-uuid": {
-            schema: MEDIA_SET_UUID_SCHEMA,
+            schema: CLOUD_MEDIA_SET_UUID_SCHEMA,
         },
     },
 )]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-/// Media Set list entry
-pub struct MediaSetListEntry {
-    /// Media set name
+/// Cloud Media Set list entry
+pub struct CloudMediaSetListEntry {
+    /// Cloud media set name
     pub media_set_name: String,
     pub media_set_uuid: Uuid,
-    /// MediaSet creation time stamp
+    /// Cloud MediaSet creation time stamp
     pub media_set_ctime: i64,
-    /// Media Pool
+    /// Cloud Media Pool
     pub pool: String,
 }
 
@@ -44,22 +48,22 @@ pub struct MediaSetListEntry {
             type: MediaStatus,
         },
         uuid: {
-            schema: MEDIA_UUID_SCHEMA,
+            schema: CLOUD_MEDIA_UUID_SCHEMA,
         },
         "media-set-uuid": {
-            schema: MEDIA_SET_UUID_SCHEMA,
+            schema: CLOUD_MEDIA_SET_UUID_SCHEMA,
             optional: true,
         },
     },
 )]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-/// Media list entry
-pub struct MediaListEntry {
-    /// Media label text (or Barcode)
+/// Cloud Media list entry
+pub struct CloudMediaListEntry {
+    /// Cloud Media label text
     pub label_text: String,
     pub uuid: Uuid,
-    /// Creation time stamp
+    /// Cloud Media creation time stamp
     pub ctime: i64,
     pub location: MediaLocation,
     pub status: MediaStatus,
@@ -67,18 +71,18 @@ pub struct MediaListEntry {
     pub expired: bool,
     /// Catalog status OK
     pub catalog: bool,
-    /// Media set name
+    /// Cloud Media set name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_set_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_set_uuid: Option<Uuid>,
-    /// Media set seq_nr
+    /// Cloud Media set seq_nr
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq_nr: Option<u64>,
-    /// MediaSet creation time stamp
+    /// Cloud MediaSet creation time stamp
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_set_ctime: Option<i64>,
-    /// Media Pool
+    /// Cloud Media Pool
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pool: Option<String>,
 }
@@ -86,34 +90,33 @@ pub struct MediaListEntry {
 #[api(
     properties: {
         uuid: {
-            schema: MEDIA_UUID_SCHEMA,
+            schema: CLOUD_MEDIA_UUID_SCHEMA,
         },
         "media-set-uuid": {
-            schema: MEDIA_SET_UUID_SCHEMA,
+            schema: CLOUD_MEDIA_SET_UUID_SCHEMA,
             optional: true,
         },
     },
 )]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-/// Media label info
-pub struct MediaIdFlat {
+/// Cloud Media label info
+pub struct CloudMediaIdFlat {
     /// Unique ID
     pub uuid: Uuid,
-    /// Media label text (or Barcode)
+    /// Cloud Media label text
     pub label_text: String,
-    /// Creation time stamp
+    /// Cloud Media creation time stamp
     pub ctime: i64,
-    // All MediaSet properties are optional here
-    /// MediaSet Pool
+    /// Cloud MediaSet Pool
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pool: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_set_uuid: Option<Uuid>,
-    /// MediaSet media sequence number
+    /// Cloud MediaSet media sequence number
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq_nr: Option<u64>,
-    /// MediaSet Creation time stamp
+    /// Cloud MediaSet Creation time stamp
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_set_ctime: Option<i64>,
     /// Encryption key fingerprint
@@ -124,48 +127,48 @@ pub struct MediaIdFlat {
 #[api(
     properties: {
         uuid: {
-            schema: MEDIA_UUID_SCHEMA,
+            schema: CLOUD_MEDIA_UUID_SCHEMA,
             optional: true,
         },
     },
 )]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-/// Label with optional Uuid
-pub struct LabelUuidMap {
-    /// Changer label text (or Barcode)
+/// Cloud Label with optional UUID
+pub struct CloudLabelUuidMap {
+    /// Cloud label text
     pub label_text: String,
-    /// Associated Uuid (if any)
+    /// Associated UUID (if any)
     pub uuid: Option<Uuid>,
 }
 
 #[api(
     properties: {
         uuid: {
-            schema: MEDIA_UUID_SCHEMA,
+            schema: CLOUD_MEDIA_UUID_SCHEMA,
         },
         "media-set-uuid": {
-            schema: MEDIA_SET_UUID_SCHEMA,
+            schema: CLOUD_MEDIA_SET_UUID_SCHEMA,
         },
     },
 )]
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "kebab-case")]
-/// Media content list entry
-pub struct MediaContentEntry {
-    /// Media label text (or Barcode)
+/// Cloud Media content list entry
+pub struct CloudMediaContentEntry {
+    /// Cloud Media label text
     pub label_text: String,
-    /// Media Uuid
+    /// Cloud Media UUID
     pub uuid: Uuid,
-    /// Media set name
+    /// Cloud Media set name
     pub media_set_name: String,
-    /// Media set uuid
+    /// Cloud Media set UUID
     pub media_set_uuid: Uuid,
-    /// MediaSet Creation time stamp
+    /// Cloud MediaSet creation time stamp
     pub media_set_ctime: i64,
-    /// Media set seq_nr
+    /// Cloud Media set seq_nr
     pub seq_nr: u64,
-    /// Media Pool
+    /// Cloud Media Pool
     pub pool: String,
     /// Datastore Name
     pub store: String,
