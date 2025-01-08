@@ -1,4 +1,4 @@
-//! Types for tape changer API
+//! Types for cloud backup API
 
 use serde::{Deserialize, Serialize};
 
@@ -8,50 +8,46 @@ use proxmox_schema::{
 
 use crate::{OptionalDeviceIdentification, PROXMOX_SAFE_ID_FORMAT};
 
-pub const CHANGER_NAME_SCHEMA: Schema = StringSchema::new("Tape Changer Identifier.")
+pub const BACKUP_NAME_SCHEMA: Schema = StringSchema::new("Cloud Backup Identifier.")
     .format(&PROXMOX_SAFE_ID_FORMAT)
     .min_length(3)
     .max_length(32)
     .schema();
 
-pub const SCSI_CHANGER_PATH_SCHEMA: Schema =
-    StringSchema::new("Path to Linux generic SCSI device (e.g. '/dev/sg4')").schema();
+pub const CLOUD_STORAGE_PATH_SCHEMA: Schema =
+    StringSchema::new("Path or URL to the cloud storage (e.g. 's3://bucket-name/path').").schema();
 
-pub const MEDIA_LABEL_SCHEMA: Schema = StringSchema::new("Media Label/Barcode.")
+pub const OBJECT_LABEL_SCHEMA: Schema = StringSchema::new("Object Label/Identifier.")
     .format(&PROXMOX_SAFE_ID_FORMAT)
     .min_length(2)
     .max_length(32)
     .schema();
 
-pub const SLOT_ARRAY_SCHEMA: Schema = ArraySchema::new(
-    "Slot list.",
+pub const BACKUP_SLOT_ARRAY_SCHEMA: Schema = ArraySchema::new(
+    "Backup slot list.",
     &IntegerSchema::new("Slot number").minimum(1).schema(),
 )
 .schema();
 
-pub const EXPORT_SLOT_LIST_SCHEMA: Schema = StringSchema::new(
-    "\
-A list of slot numbers, comma separated. Those slots are reserved for
-Import/Export, i.e. any media in those slots are considered to be
-'offline'.
-",
+pub const EXPORT_OBJECT_LIST_SCHEMA: Schema = StringSchema::new(
+    "A list of backup slots, comma-separated. These slots are reserved for specific usage in the cloud.",
 )
-.format(&ApiStringFormat::PropertyString(&SLOT_ARRAY_SCHEMA))
+.format(&ApiStringFormat::PropertyString(&BACKUP_SLOT_ARRAY_SCHEMA))
 .schema();
 
 #[api(
     properties: {
         name: {
-            schema: CHANGER_NAME_SCHEMA,
+            schema: BACKUP_NAME_SCHEMA,
         },
         path: {
-            schema: SCSI_CHANGER_PATH_SCHEMA,
+            schema: CLOUD_STORAGE_PATH_SCHEMA,
         },
         "export-slots": {
-            schema: EXPORT_SLOT_LIST_SCHEMA,
+            schema: EXPORT_OBJECT_LIST_SCHEMA,
             optional: true,
         },
-        "eject-before-unload": {
+        "auto-eject": {
             optional: true,
             default: false,
         }
@@ -59,22 +55,22 @@ Import/Export, i.e. any media in those slots are considered to be
 )]
 #[derive(Serialize, Deserialize, Updater)]
 #[serde(rename_all = "kebab-case")]
-/// SCSI tape changer
-pub struct ScsiTapeChanger {
+/// Cloud backup configuration
+pub struct CloudBackupConfig {
     #[updater(skip)]
     pub name: String,
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub export_slots: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    /// if set to true, tapes are ejected manually before unloading
-    pub eject_before_unload: Option<bool>,
+    /// If set to true, data is ejected after backup completion
+    pub auto_eject: Option<bool>,
 }
 
 #[api(
     properties: {
         config: {
-            type: ScsiTapeChanger,
+            type: CloudBackupConfig,
         },
         info: {
             type: OptionalDeviceIdentification,
@@ -83,10 +79,10 @@ pub struct ScsiTapeChanger {
 )]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-/// Changer config with optional device identification attributes
-pub struct ChangerListEntry {
+/// Cloud backup configuration with optional identification attributes
+pub struct CloudBackupListEntry {
     #[serde(flatten)]
-    pub config: ScsiTapeChanger,
+    pub config: CloudBackupConfig,
     #[serde(flatten)]
     pub info: OptionalDeviceIdentification,
 }
@@ -94,41 +90,41 @@ pub struct ChangerListEntry {
 #[api()]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-/// Mtx Entry Kind
-pub enum MtxEntryKind {
-    /// Drive
-    Drive,
-    /// Slot
-    Slot,
-    /// Import/Export Slot
+/// Cloud Object Kind
+pub enum CloudObjectKind {
+    /// Storage bucket
+    Bucket,
+    /// Individual file/object
+    Object,
+    /// Import/Export slots
     ImportExport,
 }
 
 #[api(
     properties: {
-        "entry-kind": {
-            type: MtxEntryKind,
+        "object-kind": {
+            type: CloudObjectKind,
         },
         "label-text": {
-            schema: MEDIA_LABEL_SCHEMA,
+            schema: OBJECT_LABEL_SCHEMA,
             optional: true,
         },
     },
 )]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-/// Mtx Status Entry
-pub struct MtxStatusEntry {
-    pub entry_kind: MtxEntryKind,
-    /// The ID of the slot or drive
-    pub entry_id: u64,
-    /// The media label (volume tag) if the slot/drive is full
+/// Cloud Object Entry
+pub struct CloudObjectEntry {
+    pub object_kind: CloudObjectKind,
+    /// The ID of the object or slot
+    pub object_id: u64,
+    /// The object label (if available)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label_text: Option<String>,
-    /// The slot the drive was loaded from
+    /// The slot the object was retrieved from
     #[serde(skip_serializing_if = "Option::is_none")]
     pub loaded_slot: Option<u64>,
-    /// The current state of the drive
+    /// The current state of the object
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
 }
