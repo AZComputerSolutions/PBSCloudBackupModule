@@ -1,3 +1,9 @@
+use serde::{Deserialize, Serialize};
+use proxmox_schema::api;
+use reqwest::Client as ReqwestClient;
+use reqwest::multipart::{Form, Part};
+use serde_json::json;
+
 #[api(
     properties: {
         name: {
@@ -31,11 +37,9 @@ pub struct CloudBackupStore {
     pub connected: Option<bool>,
 }
 
-use aws_sdk_s3::{Client, Config, PutObjectRequest, Bytes, PutObjectOutput};
-
 #[api(
     method = "POST",
-    path = "/upload/{filename}",
+    path = "/upload/",
 )]
 #[allow(clippy::too_many_arguments)]
 pub async fn upload_file(
@@ -44,19 +48,53 @@ pub async fn upload_file(
     file: web::Data<bytes::Bytes>,
     config: web::Json<CloudBackupStoreConfig>,
 ) -> Result<impl Responder, Error> {
-    let s3_client = Client::from_conf(Config::builder().build());
+    // Create a new Sia API client instance
+    let sia_client = SiaClient::new(config.sia_api_url.clone(), config.sia_api_key.clone().unwrap());
 
-    let file = Bytes::from(file.into_inner());
+    // Convert the file bytes to a Vec
+    let file_content = file.into_inner().to_vec();
 
-    let req = PutObjectRequest {
-        body: Some(file),
-        key: filename.as_str().to_owned(),
-        bucket: config.bucket.to_owned(),
-        acl: Some("private".to_owned()),
-        ..Default::default()
-    };
+    // Attempt to upload the file to Sia
+    match sia_client.upload_file(filename.as_str(), file_content).await {
+        Ok(_) => Ok(Json(json!({ "message": "File uploaded successfully" }))),
+        Err(err) => Err(Error::from(err)),
+    }
+}
 
-    let resp = s3_client.put_object(req).await?;
+#[derive(Clone)]
+pub struct SiaClient {
+    pub client: ReqwestClient,
+    pub base_url: String,
+    pub api_key: String,
+}
 
-    Ok(Json(resp))
+impl SiaClient {
+    // Initialize the Sia client
+    pub fn new(base_url: String, api_key: String) -> SiaClient {
+        let client = ReqwestClient::new();
+        SiaClient { client, base_url, api_key }
+    }
+
+    // Example: Upload a file to Sia
+    pub async fn upload_file(&self, filename: &str, file_content: Vec<u8>) -> Result<(), reqwest::Error> {
+        let url = format!("{}/upload", self.base_url);
+        
+        let form = Form::new()
+            .part("file", Part::bytes(file_content)
+                .file_name(filename)
+                .mime_str("application/octet-stream")
+                .unwrap());
+
+        let response = self.client.post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .multipart(form)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            Err(reqwest::Error::new(reqwest::StatusCode::BAD_REQUEST, "Failed to upload file"))
+        }
+    }
 }
