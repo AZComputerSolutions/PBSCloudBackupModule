@@ -1,28 +1,28 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    HOST_PORT_SCHEMA, HTTP_URL_SCHEMA, PROXMOX_SAFE_ID_FORMAT, SINGLE_LINE_COMMENT_SCHEMA,
+    HOST_PORT_SCHEMA, HTTP_URL_SCHEMA, CLOUD_SAFE_ID_FORMAT, SINGLE_LINE_COMMENT_SCHEMA,
 };
 use proxmox_schema::{api, Schema, StringSchema, Updater};
 
 pub const METRIC_SERVER_ID_SCHEMA: Schema = StringSchema::new("Metrics Server ID.")
-    .format(&PROXMOX_SAFE_ID_FORMAT)
+    .format(&CLOUD_SAFE_ID_FORMAT)
     .min_length(3)
     .max_length(32)
     .schema();
 
-pub const INFLUXDB_BUCKET_SCHEMA: Schema = StringSchema::new("InfluxDB Bucket.")
-    .format(&PROXMOX_SAFE_ID_FORMAT)
+pub const CLOUD_BUCKET_SCHEMA: Schema = StringSchema::new("Cloud Bucket.")
+    .format(&CLOUD_SAFE_ID_FORMAT)
     .min_length(3)
-    .max_length(32)
-    .default("proxmox")
+    .max_length(64)
+    .default("cloud-backup")
     .schema();
 
-pub const INFLUXDB_ORGANIZATION_SCHEMA: Schema = StringSchema::new("InfluxDB Organization.")
-    .format(&PROXMOX_SAFE_ID_FORMAT)
+pub const CLOUD_ORGANIZATION_SCHEMA: Schema = StringSchema::new("Cloud Organization.")
+    .format(&CLOUD_SAFE_ID_FORMAT)
     .min_length(3)
-    .max_length(32)
-    .default("proxmox")
+    .max_length(64)
+    .default("cloud-backup")
     .schema();
 
 fn return_true() -> bool {
@@ -43,7 +43,7 @@ fn is_true(b: &bool) -> bool {
             optional: true,
             default: true,
         },
-        host: {
+        endpoint: {
             schema: HOST_PORT_SCHEMA,
         },
         mtu: {
@@ -59,16 +59,16 @@ fn is_true(b: &bool) -> bool {
 )]
 #[derive(Serialize, Deserialize, Updater)]
 #[serde(rename_all = "kebab-case")]
-/// InfluxDB Server (UDP)
-pub struct InfluxDbUdp {
+/// Cloud Metrics Server (UDP)
+pub struct CloudMetricsUdp {
     #[updater(skip)]
     pub name: String,
     #[serde(default = "return_true", skip_serializing_if = "is_true")]
     #[updater(serde(skip_serializing_if = "Option::is_none"))]
     /// Enables or disables the metrics server
     pub enable: bool,
-    /// the host + port
-    pub host: String,
+    /// the endpoint + port
+    pub endpoint: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     /// The MTU
     pub mtu: Option<u16>,
@@ -94,17 +94,17 @@ pub struct InfluxDbUdp {
             optional: true,
         },
         bucket: {
-            schema: INFLUXDB_BUCKET_SCHEMA,
+            schema: CLOUD_BUCKET_SCHEMA,
             optional: true,
         },
         organization: {
-            schema: INFLUXDB_ORGANIZATION_SCHEMA,
+            schema: CLOUD_ORGANIZATION_SCHEMA,
             optional: true,
         },
         "max-body-size": {
             type: usize,
             optional: true,
-            default: 25_000_000,
+            default: 50_000_000,
         },
         "verify-tls": {
             type: bool,
@@ -119,15 +119,15 @@ pub struct InfluxDbUdp {
 )]
 #[derive(Serialize, Deserialize, Updater)]
 #[serde(rename_all = "kebab-case")]
-/// InfluxDB Server (HTTP(s))
-pub struct InfluxDbHttp {
+/// Cloud Metrics Server (HTTP(s))
+pub struct CloudMetricsHttp {
     #[updater(skip)]
     pub name: String,
     #[serde(default = "return_true", skip_serializing_if = "is_true")]
     #[updater(serde(skip_serializing_if = "Option::is_none"))]
     /// Enables or disables the metrics server
     pub enable: bool,
-    /// The base url of the influxdb server
+    /// The base url of the cloud server
     pub url: String,
     /// The Optional Token
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -149,14 +149,14 @@ pub struct InfluxDbHttp {
 
 #[api]
 #[derive(Copy, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-/// Type of the metric server
+/// Type of the cloud metrics server
 pub enum MetricServerType {
-    /// InfluxDB HTTP
-    #[serde(rename = "influxdb-http")]
-    InfluxDbHttp,
-    /// InfluxDB UDP
-    #[serde(rename = "influxdb-udp")]
-    InfluxDbUdp,
+    /// Cloud HTTP
+    #[serde(rename = "cloud-http")]
+    CloudHttp,
+    /// Cloud UDP
+    #[serde(rename = "cloud-udp")]
+    CloudUdp,
 }
 
 #[api(
@@ -175,7 +175,7 @@ pub enum MetricServerType {
 )]
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "kebab-case")]
-/// Basic information about a metric server that's available for all types
+/// Basic information about a cloud metrics server
 pub struct MetricServerInfo {
     pub name: String,
     #[serde(rename = "type")]

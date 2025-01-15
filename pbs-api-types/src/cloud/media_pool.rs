@@ -1,4 +1,4 @@
-//! Types for tape media pool API
+//! Types for cloud media pool API
 //!
 //! Note: Both MediaSetPolicy and RetentionPolicy are complex enums,
 //! so we cannot use them directly for the API. Instead, we represent
@@ -15,34 +15,33 @@ use proxmox_time::{CalendarEvent, TimeSpan};
 
 use crate::{
     PROXMOX_SAFE_ID_FORMAT, SINGLE_LINE_COMMENT_FORMAT, SINGLE_LINE_COMMENT_SCHEMA,
-    TAPE_ENCRYPTION_KEY_FINGERPRINT_SCHEMA,
 };
 
-pub const MEDIA_POOL_NAME_SCHEMA: Schema = StringSchema::new("Media pool name.")
+pub const CLOUD_MEDIA_POOL_NAME_SCHEMA: Schema = StringSchema::new("Cloud media pool name.")
     .format(&PROXMOX_SAFE_ID_FORMAT)
     .min_length(2)
     .max_length(32)
     .schema();
 
-pub const MEDIA_SET_NAMING_TEMPLATE_SCHEMA: Schema = StringSchema::new(
-    "Media set naming template (may contain strftime() time format specifications).",
+pub const CLOUD_MEDIA_SET_NAMING_TEMPLATE_SCHEMA: Schema = StringSchema::new(
+    "Cloud media set naming template (may contain strftime() time format specifications).",
 )
 .format(&SINGLE_LINE_COMMENT_FORMAT)
 .min_length(2)
 .max_length(64)
 .schema();
 
-pub const MEDIA_SET_ALLOCATION_POLICY_FORMAT: ApiStringFormat = ApiStringFormat::VerifyFn(|s| {
+pub const CLOUD_MEDIA_SET_ALLOCATION_POLICY_FORMAT: ApiStringFormat = ApiStringFormat::VerifyFn(|s| {
     MediaSetPolicy::from_str(s)?;
     Ok(())
 });
 
-pub const MEDIA_SET_ALLOCATION_POLICY_SCHEMA: Schema =
-    StringSchema::new("Media set allocation policy ('continue', 'always', or a calendar event).")
-        .format(&MEDIA_SET_ALLOCATION_POLICY_FORMAT)
+pub const CLOUD_MEDIA_SET_ALLOCATION_POLICY_SCHEMA: Schema =
+    StringSchema::new("Cloud media set allocation policy ('continue', 'always', or a calendar event).")
+        .format(&CLOUD_MEDIA_SET_ALLOCATION_POLICY_FORMAT)
         .schema();
 
-/// Media set allocation policy
+/// Media set allocation policy for cloud storage
 pub enum MediaSetPolicy {
     /// Try to use the current media set
     ContinueCurrent,
@@ -69,17 +68,17 @@ impl std::str::FromStr for MediaSetPolicy {
     }
 }
 
-pub const MEDIA_RETENTION_POLICY_FORMAT: ApiStringFormat = ApiStringFormat::VerifyFn(|s| {
+pub const CLOUD_MEDIA_RETENTION_POLICY_FORMAT: ApiStringFormat = ApiStringFormat::VerifyFn(|s| {
     RetentionPolicy::from_str(s)?;
     Ok(())
 });
 
-pub const MEDIA_RETENTION_POLICY_SCHEMA: Schema =
-    StringSchema::new("Media retention policy ('overwrite', 'keep', or time span).")
-        .format(&MEDIA_RETENTION_POLICY_FORMAT)
+pub const CLOUD_MEDIA_RETENTION_POLICY_SCHEMA: Schema =
+    StringSchema::new("Cloud media retention policy ('overwrite', 'keep', or time span).")
+        .format(&CLOUD_MEDIA_RETENTION_POLICY_FORMAT)
         .schema();
 
-/// Media retention Policy
+/// Media retention Policy for cloud storage
 pub enum RetentionPolicy {
     /// Always overwrite media
     OverwriteAlways,
@@ -109,22 +108,18 @@ impl std::str::FromStr for RetentionPolicy {
 #[api(
     properties: {
         name: {
-            schema: MEDIA_POOL_NAME_SCHEMA,
+            schema: CLOUD_MEDIA_POOL_NAME_SCHEMA,
         },
         allocation: {
-            schema: MEDIA_SET_ALLOCATION_POLICY_SCHEMA,
+            schema: CLOUD_MEDIA_SET_ALLOCATION_POLICY_SCHEMA,
             optional: true,
         },
         retention: {
-            schema: MEDIA_RETENTION_POLICY_SCHEMA,
+            schema: CLOUD_MEDIA_RETENTION_POLICY_SCHEMA,
             optional: true,
         },
         template: {
-            schema: MEDIA_SET_NAMING_TEMPLATE_SCHEMA,
-            optional: true,
-        },
-        encrypt: {
-            schema: TAPE_ENCRYPTION_KEY_FINGERPRINT_SCHEMA,
+            schema: CLOUD_MEDIA_SET_NAMING_TEMPLATE_SCHEMA,
             optional: true,
         },
         comment: {
@@ -134,15 +129,15 @@ impl std::str::FromStr for RetentionPolicy {
     },
 )]
 #[derive(Serialize, Deserialize, Updater)]
-/// Media pool configuration
-pub struct MediaPoolConfig {
-    /// The pool name
+/// Cloud media pool configuration
+pub struct CloudMediaPoolConfig {
+    /// The cloud pool name
     #[updater(skip)]
     pub name: String,
-    /// Media Set allocation policy
+    /// Media Set allocation policy for cloud
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allocation: Option<String>,
-    /// Media retention policy
+    /// Media retention policy for cloud
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retention: Option<String>,
     /// Media set naming template (default "%c")
@@ -151,11 +146,6 @@ pub struct MediaPoolConfig {
     /// format specifications.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub template: Option<String>,
-    /// Encryption key fingerprint
-    ///
-    /// If set, encrypt all data using the specified key.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypt: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
 }

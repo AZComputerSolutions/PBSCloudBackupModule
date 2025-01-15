@@ -3,60 +3,60 @@ use serde::{Deserialize, Serialize};
 use proxmox_schema::{api, ApiStringFormat, ArraySchema, Schema, StringSchema, Updater};
 
 use super::{
-    PROXMOX_SAFE_ID_FORMAT, PROXMOX_SAFE_ID_REGEX, REALM_ID_SCHEMA, SINGLE_LINE_COMMENT_SCHEMA,
+    CLOUD_SAFE_ID_FORMAT, CLOUD_SAFE_ID_REGEX, CLOUD_REALM_ID_SCHEMA, SINGLE_LINE_COMMENT_SCHEMA,
 };
 
-pub const OPENID_SCOPE_FORMAT: ApiStringFormat = ApiStringFormat::Pattern(&PROXMOX_SAFE_ID_REGEX);
+pub const OPENID_SCOPE_FORMAT: ApiStringFormat = ApiStringFormat::Pattern(&CLOUD_SAFE_ID_REGEX);
 
-pub const OPENID_SCOPE_SCHEMA: Schema = StringSchema::new("OpenID Scope Name.")
+pub const OPENID_SCOPE_SCHEMA: Schema = StringSchema::new("Cloud OpenID Scope Name.")
     .format(&OPENID_SCOPE_FORMAT)
     .schema();
 
 pub const OPENID_SCOPE_ARRAY_SCHEMA: Schema =
-    ArraySchema::new("Array of OpenId Scopes.", &OPENID_SCOPE_SCHEMA).schema();
+    ArraySchema::new("Array of Cloud OpenID Scopes.", &OPENID_SCOPE_SCHEMA).schema();
 
 pub const OPENID_SCOPE_LIST_FORMAT: ApiStringFormat =
     ApiStringFormat::PropertyString(&OPENID_SCOPE_ARRAY_SCHEMA);
 
-pub const OPENID_DEFAILT_SCOPE_LIST: &str = "email profile";
-pub const OPENID_SCOPE_LIST_SCHEMA: Schema = StringSchema::new("OpenID Scope List")
+pub const OPENID_DEFAULT_SCOPE_LIST: &str = "email profile";
+pub const OPENID_SCOPE_LIST_SCHEMA: Schema = StringSchema::new("Cloud OpenID Scope List")
     .format(&OPENID_SCOPE_LIST_FORMAT)
-    .default(OPENID_DEFAILT_SCOPE_LIST)
+    .default(OPENID_DEFAULT_SCOPE_LIST)
     .schema();
 
-pub const OPENID_ACR_FORMAT: ApiStringFormat = ApiStringFormat::Pattern(&PROXMOX_SAFE_ID_REGEX);
+pub const OPENID_ACR_FORMAT: ApiStringFormat = ApiStringFormat::Pattern(&CLOUD_SAFE_ID_REGEX);
 
 pub const OPENID_ACR_SCHEMA: Schema =
-    StringSchema::new("OpenID Authentication Context Class Reference.")
+    StringSchema::new("Cloud OpenID Authentication Context Class Reference.")
         .format(&OPENID_SCOPE_FORMAT)
         .schema();
 
 pub const OPENID_ACR_ARRAY_SCHEMA: Schema =
-    ArraySchema::new("Array of OpenId ACRs.", &OPENID_ACR_SCHEMA).schema();
+    ArraySchema::new("Array of Cloud OpenID ACRs.", &OPENID_ACR_SCHEMA).schema();
 
 pub const OPENID_ACR_LIST_FORMAT: ApiStringFormat =
     ApiStringFormat::PropertyString(&OPENID_ACR_ARRAY_SCHEMA);
 
-pub const OPENID_ACR_LIST_SCHEMA: Schema = StringSchema::new("OpenID ACR List")
+pub const OPENID_ACR_LIST_SCHEMA: Schema = StringSchema::new("Cloud OpenID ACR List")
     .format(&OPENID_ACR_LIST_FORMAT)
     .schema();
 
 pub const OPENID_USERNAME_CLAIM_SCHEMA: Schema = StringSchema::new(
-    "Use the value of this attribute/claim as unique user name. It \
+    "Use the value of this attribute/claim as the unique user name. It \
     is up to the identity provider to guarantee the uniqueness. The \
     OpenID specification only guarantees that Subject ('sub') is \
-    unique. Also make sure that the user is not allowed to change that \
-    attribute by himself!",
+    unique. Also, ensure that the user cannot change this \
+    attribute independently.",
 )
 .max_length(64)
 .min_length(1)
-.format(&PROXMOX_SAFE_ID_FORMAT)
+.format(&CLOUD_SAFE_ID_FORMAT)
 .schema();
 
 #[api(
     properties: {
         realm: {
-            schema: REALM_ID_SCHEMA,
+            schema: CLOUD_REALM_ID_SCHEMA,
         },
         "client-key": {
             optional: true,
@@ -70,9 +70,9 @@ pub const OPENID_USERNAME_CLAIM_SCHEMA: Schema = StringSchema::new(
             optional: true,
         },
         prompt: {
-            description: "OpenID Prompt",
+            description: "Cloud OpenID Prompt",
             type: String,
-            format: &PROXMOX_SAFE_ID_FORMAT,
+            format: &CLOUD_SAFE_ID_FORMAT,
             optional: true,
         },
         comment: {
@@ -81,7 +81,7 @@ pub const OPENID_USERNAME_CLAIM_SCHEMA: Schema = StringSchema::new(
         },
         autocreate: {
             optional: true,
-            default: false,
+            default: true,
         },
         "username-claim": {
             schema: OPENID_USERNAME_CLAIM_SCHEMA,
@@ -91,11 +91,11 @@ pub const OPENID_USERNAME_CLAIM_SCHEMA: Schema = StringSchema::new(
 )]
 #[derive(Serialize, Deserialize, Updater)]
 #[serde(rename_all = "kebab-case")]
-/// OpenID configuration properties.
-pub struct OpenIdRealmConfig {
+/// Cloud OpenID configuration properties.
+pub struct CloudOpenIdConfig {
     #[updater(skip)]
     pub realm: String,
-    /// OpenID Issuer Url
+    /// OpenID Issuer URL
     pub issuer_url: String,
     /// OpenID Client ID
     pub client_id: String,

@@ -12,49 +12,38 @@ use crate::{
 pub const NETWORK_INTERFACE_FORMAT: ApiStringFormat =
     ApiStringFormat::Pattern(&PROXMOX_SAFE_ID_REGEX);
 
-pub const IP_V4_SCHEMA: Schema = StringSchema::new("IPv4 address.")
+pub const IP_V4_SCHEMA: Schema = StringSchema::new("Cloud IPv4 address.")
     .format(&IP_V4_FORMAT)
     .max_length(15)
     .schema();
 
-pub const IP_V6_SCHEMA: Schema = StringSchema::new("IPv6 address.")
+pub const IP_V6_SCHEMA: Schema = StringSchema::new("Cloud IPv6 address.")
     .format(&IP_V6_FORMAT)
     .max_length(39)
     .schema();
 
-pub const IP_SCHEMA: Schema = StringSchema::new("IP (IPv4 or IPv6) address.")
-    .format(&IP_FORMAT)
-    .max_length(39)
-    .schema();
-
-pub const CIDR_V4_SCHEMA: Schema = StringSchema::new("IPv4 address with netmask (CIDR notation).")
+pub const CIDR_V4_SCHEMA: Schema = StringSchema::new("Cloud IPv4 CIDR block.")
     .format(&CIDR_V4_FORMAT)
     .max_length(18)
     .schema();
 
-pub const CIDR_V6_SCHEMA: Schema = StringSchema::new("IPv6 address with netmask (CIDR notation).")
+pub const CIDR_V6_SCHEMA: Schema = StringSchema::new("Cloud IPv6 CIDR block.")
     .format(&CIDR_V6_FORMAT)
     .max_length(43)
     .schema();
-
-pub const CIDR_SCHEMA: Schema =
-    StringSchema::new("IP address (IPv4 or IPv6) with netmask (CIDR notation).")
-        .format(&CIDR_FORMAT)
-        .max_length(43)
-        .schema();
 
 #[api()]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 /// Interface configuration method
-pub enum NetworkConfigMethod {
-    /// Configuration is done manually using other tools
+pub enum CloudNetworkConfigMethod {
+    /// Manually configured network
     Manual,
-    /// Define interfaces with statically allocated addresses.
-    Static,
-    /// Obtain an address via DHCP
-    DHCP,
-    /// Define the loopback interface.
+    /// Dynamic IP allocation (Cloud DHCP equivalent)
+    Dynamic,
+    /// Use predefined cloud network subnet
+    Subnet,
+    /// Cloud-specific loopback
     Loopback,
 }
 
@@ -62,116 +51,30 @@ pub enum NetworkConfigMethod {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[repr(u8)]
-/// Linux Bond Mode
-pub enum LinuxBondMode {
-    /// Round-robin policy
-    BalanceRr = 0,
-    /// Active-backup policy
-    ActiveBackup = 1,
-    /// XOR policy
-    BalanceXor = 2,
-    /// Broadcast policy
-    Broadcast = 3,
-    /// IEEE 802.3ad Dynamic link aggregation
-    #[serde(rename = "802.3ad")]
-    Ieee802_3ad = 4,
-    /// Adaptive transmit load balancing
-    BalanceTlb = 5,
-    /// Adaptive load balancing
-    BalanceAlb = 6,
-}
-
-impl fmt::Display for LinuxBondMode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(match self {
-            LinuxBondMode::BalanceRr => "balance-rr",
-            LinuxBondMode::ActiveBackup => "active-backup",
-            LinuxBondMode::BalanceXor => "balance-xor",
-            LinuxBondMode::Broadcast => "broadcast",
-            LinuxBondMode::Ieee802_3ad => "802.3ad",
-            LinuxBondMode::BalanceTlb => "balance-tlb",
-            LinuxBondMode::BalanceAlb => "balance-alb",
-        })
-    }
-}
-
-#[api()]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-#[repr(u8)]
-/// Bond Transmit Hash Policy for LACP (802.3ad)
-pub enum BondXmitHashPolicy {
-    /// Layer 2
-    Layer2 = 0,
-    /// Layer 2+3
-    #[serde(rename = "layer2+3")]
-    Layer2_3 = 1,
-    /// Layer 3+4
-    #[serde(rename = "layer3+4")]
-    Layer3_4 = 2,
-}
-
-impl fmt::Display for BondXmitHashPolicy {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(match self {
-            BondXmitHashPolicy::Layer2 => "layer2",
-            BondXmitHashPolicy::Layer2_3 => "layer2+3",
-            BondXmitHashPolicy::Layer3_4 => "layer3+4",
-        })
-    }
-}
-
-#[api()]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-/// Network interface type
-pub enum NetworkInterfaceType {
+/// Virtual Network Interface Types
+pub enum CloudNetworkInterfaceType {
+    /// Cloud-specific virtual network adapter
+    VirtualAdapter,
+    /// Public-facing network interface
+    PublicInterface,
+    /// Private internal cloud network
+    PrivateInterface,
     /// Loopback
     Loopback,
-    /// Physical Ethernet device
-    Eth,
-    /// Linux Bridge
-    Bridge,
-    /// Linux Bond
-    Bond,
-    /// Linux VLAN (eth.10)
-    Vlan,
-    /// Interface Alias (eth:1)
-    Alias,
     /// Unknown interface type
     Unknown,
 }
 
-pub const NETWORK_INTERFACE_NAME_SCHEMA: Schema = StringSchema::new("Network interface name.")
-    .format(&NETWORK_INTERFACE_FORMAT)
-    .min_length(1)
-    .max_length(15) // libc::IFNAMSIZ-1
-    .schema();
-
-pub const NETWORK_INTERFACE_ARRAY_SCHEMA: Schema =
-    ArraySchema::new("Network interface list.", &NETWORK_INTERFACE_NAME_SCHEMA).schema();
-
-pub const NETWORK_INTERFACE_LIST_SCHEMA: Schema =
-    StringSchema::new("A list of network devices, comma separated.")
-        .format(&ApiStringFormat::PropertyString(
-            &NETWORK_INTERFACE_ARRAY_SCHEMA,
-        ))
-        .schema();
-
 #[api(
     properties: {
         name: {
-            schema: NETWORK_INTERFACE_NAME_SCHEMA,
+            schema: NETWORK_INTERFACE_FORMAT,
         },
         "type": {
-            type: NetworkInterfaceType,
+            type: CloudNetworkInterfaceType,
         },
         method: {
-            type: NetworkConfigMethod,
-            optional: true,
-        },
-        method6: {
-            type: NetworkConfigMethod,
+            type: CloudNetworkConfigMethod,
             optional: true,
         },
         cidr: {
@@ -190,139 +93,70 @@ pub const NETWORK_INTERFACE_LIST_SCHEMA: Schema =
             schema: IP_V6_SCHEMA,
             optional: true,
         },
-        options: {
-            description: "Option list (inet)",
-            type: Array,
-            items: {
-                description: "Optional attribute line.",
-                type: String,
-            },
+        subnet_id: {
+            description: "Cloud Subnet ID",
+            type: String,
+            optional: true,
         },
-        options6: {
-            description: "Option list (inet6)",
+        tags: {
+            description: "Cloud-specific metadata tags",
             type: Array,
             items: {
-                description: "Optional attribute line.",
+                description: "Metadata tag",
                 type: String,
             },
         },
         comments: {
-            description: "Comments (inet, may span multiple lines)",
+            description: "Comments (may span multiple lines)",
             type: String,
-            optional: true,
-        },
-        comments6: {
-            description: "Comments (inet6, may span multiple lines)",
-            type: String,
-            optional: true,
-        },
-        bridge_ports: {
-            schema: NETWORK_INTERFACE_ARRAY_SCHEMA,
-            optional: true,
-        },
-        slaves: {
-            schema: NETWORK_INTERFACE_ARRAY_SCHEMA,
-            optional: true,
-        },
-        bond_mode: {
-            type: LinuxBondMode,
-            optional: true,
-        },
-        "bond-primary": {
-            schema: NETWORK_INTERFACE_NAME_SCHEMA,
-            optional: true,
-        },
-        bond_xmit_hash_policy: {
-            type: BondXmitHashPolicy,
             optional: true,
         },
     }
 )]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-/// Network Interface configuration
-pub struct Interface {
-    /// Autostart interface
-    #[serde(rename = "autostart")]
-    pub autostart: bool,
-    /// Interface is active (UP)
-    pub active: bool,
+/// Cloud Network Interface configuration
+pub struct CloudInterface {
     /// Interface name
     pub name: String,
     /// Interface type
     #[serde(rename = "type")]
-    pub interface_type: NetworkInterfaceType,
+    pub interface_type: CloudNetworkInterfaceType,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub method: Option<NetworkConfigMethod>,
+    pub method: Option<CloudNetworkConfigMethod>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub method6: Option<NetworkConfigMethod>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    /// IPv4 address with netmask
+    /// IPv4 CIDR
     pub cidr: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    /// IPv4 gateway
-    pub gateway: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    /// IPv6 address with netmask
+    /// IPv6 CIDR
     pub cidr6: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    /// IPv6 gateway
+    /// IPv4 Gateway
+    pub gateway: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// IPv6 Gateway
     pub gateway6: Option<String>,
-
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Cloud Subnet ID
+    pub subnet_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub options: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub options6: Vec<String>,
-
+    pub tags: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comments: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub comments6: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    /// Maximum Transmission Unit
-    pub mtu: Option<u64>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bridge_ports: Option<Vec<String>>,
-    /// Enable bridge vlan support.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bridge_vlan_aware: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub slaves: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bond_mode: Option<LinuxBondMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "bond-primary")]
-    pub bond_primary: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bond_xmit_hash_policy: Option<BondXmitHashPolicy>,
 }
 
-impl Interface {
+impl CloudInterface {
     pub fn new(name: String) -> Self {
         Self {
             name,
-            interface_type: NetworkInterfaceType::Unknown,
-            autostart: false,
-            active: false,
+            interface_type: CloudNetworkInterfaceType::Unknown,
             method: None,
-            method6: None,
             cidr: None,
-            gateway: None,
             cidr6: None,
+            gateway: None,
             gateway6: None,
-            options: Vec::new(),
-            options6: Vec::new(),
+            subnet_id: None,
+            tags: Vec::new(),
             comments: None,
-            comments6: None,
-            mtu: None,
-            bridge_ports: None,
-            bridge_vlan_aware: None,
-            slaves: None,
-            bond_mode: None,
-            bond_primary: None,
-            bond_xmit_hash_policy: None,
         }
     }
 }

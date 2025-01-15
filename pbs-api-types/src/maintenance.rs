@@ -18,35 +18,28 @@ pub const MAINTENANCE_MESSAGE_SCHEMA: Schema =
         .schema();
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// Operation requirements, used when checking for maintenance mode.
+/// Operation requirements, used when checking for maintenance mode in cloud backups.
 pub enum Operation {
-    /// for any read operation like backup restore or RRD metric collection
+    /// For any read operation, such as backup restoration or metadata fetching.
     Read,
-    /// for any write/delete operation, like backup create or GC
+    /// For any write/delete operation, such as creating or deleting backups.
     Write,
-    /// for any purely logical operation on the in-memory state of the datastore, e.g., to check if
-    /// some mutex could be locked (e.g., GC already running?)
-    ///
-    /// NOTE: one must *not* do any IO operations when only helding this Op state
+    /// For any operation on in-memory state, like checking cloud storage status.
+    /// 
+    /// NOTE: This does not involve performing IO operations.
     Lookup,
-    // GarbageCollect or Delete?
 }
 
 #[api]
 #[derive(Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-/// Maintenance type.
+/// Maintenance type for cloud backup systems.
 pub enum MaintenanceType {
-    // TODO:
-    //  - Add "unmounting" once we got pluggable datastores
-    //  - Add "GarbageCollection" or "DeleteOnly" as type and track GC (or all deletes) as separate
-    //    operation, so that one can enable a mode where nothing new can be added but stuff can be
-    //    cleaned
-    /// Only read operations are allowed on the datastore.
+    /// Only read operations are allowed.
     ReadOnly,
-    /// Neither read nor write operations are allowed on the datastore.
+    /// Neither read nor write operations are allowed.
     Offline,
-    /// The datastore is being deleted.
+    /// The cloud storage bucket is being deleted or reconfigured.
     Delete,
 }
 serde_plain::derive_display_from_serialize!(MaintenanceType);
@@ -65,7 +58,7 @@ serde_plain::derive_fromstr_from_deserialize!(MaintenanceType);
     default_key: "type",
 )]
 #[derive(Deserialize, Serialize)]
-/// Maintenance mode
+/// Maintenance mode for cloud backups.
 pub struct MaintenanceMode {
     /// Type of maintenance ("read-only" or "offline").
     #[serde(rename = "type")]
@@ -77,9 +70,10 @@ pub struct MaintenanceMode {
 }
 
 impl MaintenanceMode {
+    /// Checks the current maintenance mode against an attempted operation.
     pub fn check(&self, operation: Option<Operation>) -> Result<(), Error> {
         if self.ty == MaintenanceType::Delete {
-            bail!("datastore is being deleted");
+            bail!("cloud storage bucket is being deleted");
         }
 
         let message = percent_encoding::percent_decode_str(self.message.as_deref().unwrap_or(""))

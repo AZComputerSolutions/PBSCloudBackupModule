@@ -3,41 +3,43 @@ use std::ffi::OsStr;
 use proxmox_schema::*;
 use serde::{Deserialize, Serialize};
 
-use crate::StorageStatus;
-
 #[api]
 #[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-/// Node memory usage counters
-pub struct NodeMemoryCounters {
-    /// Total memory
+/// Cloud memory usage counters
+pub struct CloudMemoryCounters {
+    /// Total memory (in bytes)
     pub total: u64,
-    /// Used memory
+    /// Used memory (in bytes)
     pub used: u64,
-    /// Free memory
+    /// Free memory (in bytes)
     pub free: u64,
 }
 
 #[api]
 #[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-/// Node swap usage counters
-pub struct NodeSwapCounters {
-    /// Total swap
+/// Cloud swap usage counters
+pub struct CloudSwapCounters {
+    /// Total swap (in bytes)
     pub total: u64,
-    /// Used swap
+    /// Used swap (in bytes)
     pub used: u64,
-    /// Free swap
+    /// Free swap (in bytes)
     pub free: u64,
 }
 
 #[api]
 #[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-/// Contains general node information such as the fingerprint`
-pub struct NodeInformation {
-    /// The SSL Fingerprint
-    pub fingerprint: String,
+/// Contains general cloud node information such as instance ID
+pub struct CloudNodeInformation {
+    /// The instance ID
+    pub instance_id: String,
+    /// The availability zone
+    pub availability_zone: String,
+    /// The cloud provider
+    pub provider: String,
 }
 
 #[api]
@@ -45,7 +47,7 @@ pub struct NodeInformation {
 #[serde(rename_all = "lowercase")]
 /// The current kernel version (output of `uname`)
 pub struct KernelVersionInformation {
-    /// The systemname/nodename
+    /// The system name
     pub sysname: String,
     /// The kernel release number
     pub release: String,
@@ -76,50 +78,23 @@ impl KernelVersionInformation {
 }
 
 #[api]
-#[derive(Serialize, Deserialize, Copy, Clone)]
-#[serde(rename_all = "kebab-case")]
-/// The possible BootModes
-pub enum BootMode {
-    /// The BootMode is EFI/UEFI
-    Efi,
-    /// The BootMode is Legacy BIOS
-    LegacyBios,
-}
-
-#[api]
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "lowercase")]
-/// Holds the Bootmodes
-pub struct BootModeInformation {
-    /// The BootMode, either Efi or Bios
-    pub mode: BootMode,
-    /// SecureBoot status
-    pub secureboot: bool,
-}
-
-#[api]
 #[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-/// Information about the CPU
-pub struct NodeCpuInformation {
+/// Information about the CPU in a cloud environment
+pub struct CloudCpuInformation {
     /// The CPU model
     pub model: String,
-    /// The number of CPU sockets
-    pub sockets: usize,
-    /// The number of CPU cores (incl. threads)
-    pub cpus: usize,
+    /// The number of virtual CPUs (vCPUs)
+    pub vcpus: usize,
 }
 
 #[api(
     properties: {
         memory: {
-            type: NodeMemoryCounters,
-        },
-        root: {
-            type: StorageStatus,
+            type: CloudMemoryCounters,
         },
         swap: {
-            type: NodeSwapCounters,
+            type: CloudSwapCounters,
         },
         loadavg: {
             type: Array,
@@ -129,34 +104,29 @@ pub struct NodeCpuInformation {
             }
         },
         cpuinfo: {
-            type: NodeCpuInformation,
+            type: CloudCpuInformation,
         },
         info: {
-            type: NodeInformation,
+            type: CloudNodeInformation,
         }
     },
 )]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-/// The Node status
-pub struct NodeStatus {
-    pub memory: NodeMemoryCounters,
-    pub root: StorageStatus,
-    pub swap: NodeSwapCounters,
-    /// The current uptime of the server.
+/// The Cloud Node status
+pub struct CloudNodeStatus {
+    pub memory: CloudMemoryCounters,
+    pub swap: CloudSwapCounters,
+    /// The current uptime of the instance (in seconds).
     pub uptime: u64,
-    /// Load for 1, 5 and 15 minutes.
+    /// Load for 1, 5, and 15 minutes.
     pub loadavg: [f64; 3],
     /// The current kernel version (NEW struct type).
     pub current_kernel: KernelVersionInformation,
-    /// The current kernel version (LEGACY string type).
-    pub kversion: String,
-    /// Total CPU usage since last query.
+    /// Total CPU usage since the last query.
     pub cpu: f64,
-    /// Total IO wait since last query.
-    pub wait: f64,
-    pub cpuinfo: NodeCpuInformation,
-    pub info: NodeInformation,
-    /// Current boot mode
-    pub boot_info: BootModeInformation,
+    /// The CPU information.
+    pub cpuinfo: CloudCpuInformation,
+    /// General instance information.
+    pub info: CloudNodeInformation,
 }
