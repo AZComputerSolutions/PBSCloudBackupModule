@@ -21,6 +21,7 @@ pub use config_version_cache::ConfigVersionCache;
 
 use anyhow::{format_err, Error};
 use nix::unistd::{Gid, Group, Uid, User};
+use sia_api::{SiaClient, SiaError};
 
 pub use pbs_buildcfg::{BACKUP_GROUP_NAME, BACKUP_USER_NAME};
 
@@ -108,5 +109,26 @@ pub fn replace_secret_config<P: AsRef<std::path::Path>>(path: P, data: &[u8]) ->
 
     proxmox_sys::fs::replace_file(path, data, options, true)?;
 
+    Ok(())
+}
+
+pub fn init_sia_client(api_key: &str) -> Result<SiaClient, SiaError> {
+    SiaClient::new(api_key)
+}
+
+// Function to upload a file to Sia
+pub fn upload_file_to_sia(client: &SiaClient, file_path: &str) -> Result<(), SiaError> {
+    client.upload_file(file_path)
+}
+
+// Function to download a file from Sia
+pub fn download_file_from_sia(client: &SiaClient, file_id: &str, destination: &str) -> Result<(), SiaError> {
+    client.download_file(file_id, destination)
+}
+
+// Example usage in an existing function
+pub fn example_backup_to_sia() -> Result<(), Error> {
+    let sia_client = init_sia_client("your_sia_api_key")?;
+    upload_file_to_sia(&sia_client, "path/to/your/file")?;
     Ok(())
 }

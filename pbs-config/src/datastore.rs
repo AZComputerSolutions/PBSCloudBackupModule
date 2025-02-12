@@ -9,6 +9,8 @@ use pbs_api_types::{DataStoreConfig, DATASTORE_SCHEMA};
 
 use crate::{open_backup_lockfile, replace_backup_config, BackupLockGuard, ConfigVersionCache};
 
+use sia_api::{SiaClient, SiaError};
+
 lazy_static! {
     pub static ref CONFIG: SectionConfig = init();
 }
@@ -44,9 +46,24 @@ pub fn config() -> Result<(SectionConfigData, [u8; 32]), Error> {
     Ok((data, digest))
 }
 
+pub fn init_sia_client(api_key: &str) -> Result<SiaClient, SiaError> {
+    SiaClient::new(api_key)
+}
+
+pub fn upload_datastore_config_to_sia(client: &SiaClient) -> Result<(), SiaError> {
+    client.upload_file(DATASTORE_CFG_FILENAME)
+}
+
+pub fn download_datastore_config_from_sia(client: &SiaClient, destination: &str) -> Result<(), SiaError> {
+    client.download_file(DATASTORE_CFG_FILENAME, destination)
+}
+
 pub fn save_config(config: &SectionConfigData) -> Result<(), Error> {
     let raw = CONFIG.write(DATASTORE_CFG_FILENAME, config)?;
     replace_backup_config(DATASTORE_CFG_FILENAME, raw.as_bytes())?;
+
+    let sia_client = init_sia_client("your_sia_api_key")?;
+    upload_datastore_config_to_sia(&sia_client)?;
 
     // used in pbs-datastore
     let version_cache = ConfigVersionCache::new()?;
