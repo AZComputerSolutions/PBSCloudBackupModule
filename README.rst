@@ -1,3 +1,5 @@
+Project Website -> https://www.pbscloudbackup.com/
+This project is sponsored by the Sia Foundation and you can see our updates and current status at -> https://forum.sia.tech/t/standard-grant-proposal-proxmox-backup-cloud-extension-continuation/764/17
 
 Build & Release Notes
 *********************
